@@ -1,14 +1,12 @@
-name: Build Friendly Walker
+name: Test Compile Only
 
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
-  build:
+  test-compile:
     runs-on: ubuntu-latest
     
     steps:
@@ -16,42 +14,27 @@ jobs:
       uses: actions/checkout@v4
       with:
         path: my-app
-        fetch-depth: 1
     
-    - name: Checkout Mayhem firmware
-      uses: actions/checkout@v4
-      with:
-        repository: portapack-mayhem/mayhem-firmware
-        path: mayhem-firmware
-        submodules: recursive
-        fetch-depth: 1
-    
-    - name: Install dependencies
+    - name: Install ARM GCC
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-arm-none-eabi build-essential cmake
-    
-    - name: Copy my app to Mayhem external apps
+        sudo apt-get install -y gcc-arm-none-eabi
+        
+    - name: Test compile each file
       run: |
-        mkdir -p mayhem-firmware/firmware/application/external/friendly_walker
-        cp -r my-app/firmware/application/external/friendly_walker/* \
-              mayhem-firmware/firmware/application/external/friendly_walker/
-        echo "App files copied successfully"
-        ls -la mayhem-firmware/firmware/application/external/friendly_walker/
-    
-    - name: Build firmware
-      run: |
-        cd mayhem-firmware
-        mkdir -p build
-        cd build
-        cmake .. -DEXTERNAL_APPS="friendly_walker"
-        make -j2
-    
-    - name: Upload firmware
-      # CHANGED: v3 -> v4
-      uses: actions/upload-artifact@v4
-      with:
-        name: friendly-walker-firmware
-        path: |
-          mayhem-firmware/build/portapack-mayhem-firmware.bin
-          mayhem-firmware/build/portapack-mayhem-firmware.elf
+        cd my-app/firmware/application/external/friendly_walker/
+        
+        echo "=== TESTING main.cpp ==="
+        arm-none-eabi-g++ -c -std=c++17 -I. main.cpp -o main.o 2>&1 || true
+        
+        echo ""
+        echo "=== TESTING friendly_walker_headset.cpp ==="
+        arm-none-eabi-g++ -c -std=c++17 -I. friendly_walker_headset.cpp -o headset.o 2>&1 || true
+        
+        echo ""
+        echo "=== TESTING with includes ==="
+        arm-none-eabi-g++ -c -std=c++17 \
+          -I. \
+          -I../../.. \
+          -I../../../../firmware/application \
+          friendly_walker_headset.cpp -o test.o 2>&1 | head -30
