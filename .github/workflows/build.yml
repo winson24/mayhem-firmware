@@ -33,21 +33,27 @@ jobs:
         cp -r my-app/firmware/application/external/friendly_walker/* \
               mayhem-firmware/firmware/application/external/friendly_walker/
     
-    - name: Configure build for PPMA
+    - name: Configure build
       run: |
         cd mayhem-firmware
         mkdir -p build
         cd build
-        # Configure to build external apps as .ppma files
-        cmake .. -DEXTERNAL_APPS="friendly_walker" -DBUILD_PPMA=ON
+        cmake .. -DEXTERNAL_APPS="friendly_walker"
     
-    - name: Build PPMA
+    - name: Build standalone apps (includes .ppma files)
       run: |
         cd mayhem-firmware/build
-        make friendly_walker_ppma
+        make standalone_apps -j2
         
+    - name: Find and upload PPMA file
+      run: |
+        echo "Looking for .ppma files..."
+        find mayhem-firmware/build -name "*.ppma" -type f
+        mkdir -p artifacts
+        cp $(find mayhem-firmware/build -name "*.ppma" -type f) artifacts/ || true
+    
     - name: Upload PPMA file
       uses: actions/upload-artifact@v4
       with:
-        name: friendly-walker.ppma
-        path: mayhem-firmware/build/friendly_walker.ppma
+        name: friendly-walker-ppma
+        path: artifacts/*.ppma
