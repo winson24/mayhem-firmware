@@ -1,4 +1,4 @@
-name: Test Compile Only
+name: Build Friendly Walker as PPMA
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  test-compile:
+  build-ppma:
     runs-on: ubuntu-latest
     
     steps:
@@ -15,26 +15,39 @@ jobs:
       with:
         path: my-app
     
-    - name: Install ARM GCC
+    - name: Checkout Mayhem firmware
+      uses: actions/checkout@v4
+      with:
+        repository: portapack-mayhem/mayhem-firmware
+        path: mayhem-firmware
+        submodules: recursive
+    
+    - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-arm-none-eabi
-        
-    - name: Test compile each file
+        sudo apt-get install -y gcc-arm-none-eabi build-essential cmake
+    
+    - name: Copy app to external directory
       run: |
-        cd my-app/firmware/application/external/friendly_walker/
+        mkdir -p mayhem-firmware/firmware/application/external/friendly_walker
+        cp -r my-app/firmware/application/external/friendly_walker/* \
+              mayhem-firmware/firmware/application/external/friendly_walker/
+    
+    - name: Configure build for PPMA
+      run: |
+        cd mayhem-firmware
+        mkdir -p build
+        cd build
+        # Configure to build external apps as .ppma files
+        cmake .. -DEXTERNAL_APPS="friendly_walker" -DBUILD_PPMA=ON
+    
+    - name: Build PPMA
+      run: |
+        cd mayhem-firmware/build
+        make friendly_walker_ppma
         
-        echo "=== TESTING main.cpp ==="
-        arm-none-eabi-g++ -c -std=c++17 -I. main.cpp -o main.o 2>&1 || true
-        
-        echo ""
-        echo "=== TESTING friendly_walker_headset.cpp ==="
-        arm-none-eabi-g++ -c -std=c++17 -I. friendly_walker_headset.cpp -o headset.o 2>&1 || true
-        
-        echo ""
-        echo "=== TESTING with includes ==="
-        arm-none-eabi-g++ -c -std=c++17 \
-          -I. \
-          -I../../.. \
-          -I../../../../firmware/application \
-          friendly_walker_headset.cpp -o test.o 2>&1 | head -30
+    - name: Upload PPMA file
+      uses: actions/upload-artifact@v4
+      with:
+        name: friendly-walker.ppma
+        path: mayhem-firmware/build/friendly_walker.ppma
