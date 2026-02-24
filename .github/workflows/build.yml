@@ -1,4 +1,4 @@
-name: Build Friendly Walker as PPMA
+name: DEBUG - Build Friendly Walker PPMA
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-ppma:
+  debug-build:
     runs-on: ubuntu-latest
     
     steps:
@@ -25,35 +25,84 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-arm-none-eabi build-essential cmake
+        sudo apt-get install -y gcc-arm-none-eabi build-essential cmake tree
     
-    - name: Copy app to external directory
+    - name: DEBUG - Show my app structure
+      run: |
+        echo "=== MY APP FILES ==="
+        tree my-app
+        echo ""
+        echo "=== MY APP SOURCE FILES ==="
+        cat my-app/firmware/application/external/friendly_walker/CMakeLists.txt
+        echo "---"
+        head -50 my-app/firmware/application/external/friendly_walker/friendly_walker.hpp
+        echo "---"
+        head -50 my-app/firmware/application/external/friendly_walker/friendly_walker_headset.cpp
+        echo "---"
+        cat my-app/firmware/application/external/friendly_walker/main.cpp
+    
+    - name: Copy app to Mayhem
       run: |
         mkdir -p mayhem-firmware/firmware/application/external/friendly_walker
-        cp -r my-app/firmware/application/external/friendly_walker/* \
+        cp -rv my-app/firmware/application/external/friendly_walker/* \
               mayhem-firmware/firmware/application/external/friendly_walker/
+        echo ""
+        echo "=== VERIFY COPY ==="
+        ls -la mayhem-firmware/firmware/application/external/friendly_walker/
     
-    - name: Configure build
+    - name: DEBUG - Show Mayhem external apps
+      run: |
+        echo "=== ALL EXTERNAL APPS ==="
+        ls -la mayhem-firmware/firmware/application/external/
+    
+    - name: Configure with maximum verbosity
       run: |
         cd mayhem-firmware
         mkdir -p build
         cd build
-        cmake .. -DEXTERNAL_APPS="friendly_walker"
+        echo "=== CMAKE CONFIGURATION ==="
+        cmake .. -DEXTERNAL_APPS="friendly_walker" -DCMAKE_VERBOSE_MAKEFILE=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+        echo ""
+        echo "=== CHECK IF APP IS RECOGNIZED ==="
+        grep -r "friendly_walker" CMakeCache.txt || echo "Not found in cache"
+        echo ""
+        echo "=== CMAKE GENERATED FILES ==="
+        ls -la
     
-    - name: Build standalone apps (includes .ppma files)
+    - name: Try to build (with full output)
       run: |
         cd mayhem-firmware/build
-        make standalone_apps -j2
-        
-    - name: Find and upload PPMA file
-      run: |
-        echo "Looking for .ppma files..."
-        find mayhem-firmware/build -name "*.ppma" -type f
-        mkdir -p artifacts
-        cp $(find mayhem-firmware/build -name "*.ppma" -type f) artifacts/ || true
+        echo "=== BUILDING standalone_apps ==="
+        make standalone_apps VERBOSE=1 2>&1 | tee build_output.txt
+        echo ""
+        echo "=== CHECKING FOR PPMA FILES ==="
+        find . -name "*.ppma" -type f | head -20
+        echo ""
+        echo "=== BUILD DIRECTORY CONTENTS ==="
+        ls -la
+        echo ""
+        echo "=== EXTERNAL APP BUILD DIR ==="
+        ls -la CMakeFiles/friendly_walker.dir/ || echo "No friendly_walker build dir"
     
-    - name: Upload PPMA file
+    - name: Show errors (if any)
+      if: failure()
+      run: |
+        echo "=== COMPILATION ERRORS ==="
+        grep -i "error:" build_output.txt | head -50 || echo "No errors found"
+        echo ""
+        echo "=== LAST 100 LINES OF BUILD ==="
+        tail -100 build_output.txt
+        echo ""
+        echo "=== CHECKING CMAKE ERROR LOG ==="
+        cat CMakeFiles/CMakeError.log || echo "No error log"
+    
+    - name: Upload everything for debugging
+      if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: friendly-walker-ppma
-        path: artifacts/*.ppma
+        name: debug-output
+        path: |
+          mayhem-firmware/build/build_output.txt
+          mayhem-firmware/build/CMakeFiles/CMakeError.log
+          mayhem-firmware/build/CMakeFiles/CMakeOutput.log
+          mayhem-firmware/build/CMakeFiles/friendly_walker.dir/
