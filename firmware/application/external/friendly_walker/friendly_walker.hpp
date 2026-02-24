@@ -1,6 +1,12 @@
 #ifndef __FRIENDLY_WALKER_H__
 #define __FRIENDLY_WALKER_H__
 
+#include <cstdint>
+#include "ui.hpp"
+#include "ui_widget.hpp"
+#include "ui_navigation.hpp"
+#include "ui_text.hpp"
+#include "ui_progress.hpp"
 #include "ui.hpp"
 #include "ui_navigation.hpp"
 #include "ui_freq_field.hpp"
@@ -140,5 +146,6 @@ private:
 
 } // namespace friendly_walker
 } // namespace ui::external_app
+
 
 #endif // __FRIENDLY_WALKER_H__
