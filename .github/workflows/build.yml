@@ -1,0 +1,53 @@
+name: Build Friendly Walker App
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          path: friendly-walker
+      
+      - name: Checkout Mayhem firmware
+        uses: actions/checkout@v3
+        with:
+          repository: portapack-mayhem/mayhem-firmware
+          path: mayhem-firmware
+          submodules: recursive
+      
+      - name: Install ARM toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi build-essential cmake
+      
+      - name: Copy app to external apps directory
+        run: |
+          mkdir -p mayhem-firmware/firmware/application/external/friendly_walker
+          cp -r friendly-walker/firmware/application/external/friendly_walker/* \
+                mayhem-firmware/firmware/application/external/friendly_walker/
+      
+      - name: Build firmware with external app
+        run: |
+          cd mayhem-firmware
+          mkdir -p build
+          cd build
+          cmake .. -DEXTERNAL_APPS="friendly_walker"
+          make -j4
+      
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: friendly-walker-firmware
+          path: |
+            mayhem-firmware/build/portapack-mayhem-firmware.bin
+            mayhem-firmware/build/portapack-mayhem-firmware.elf
+            mayhem-firmware/build/portapack-mayhem-firmware.dfu
