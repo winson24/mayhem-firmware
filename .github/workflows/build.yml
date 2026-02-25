@@ -15,31 +15,49 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
+    - name: Show directory structure
+      run: |
+        echo "=== Current directory ==="
+        pwd
+        echo "=== Listing all files ==="
+        find . -type f -name "*.cpp" -o -name "*.hpp" | sort
+    
     - name: Install ARM GCC
       run: |
         sudo apt-get update
         sudo apt-get install -y gcc-arm-none-eabi
     
-    - name: Compile app
+    - name: Compile friendly_talker app
       run: |
-        # Compile each cpp file
-        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
-          -fno-exceptions -fno-rtti \
-          -I. \
-          friendly_talker.cpp -o friendly_talker.o
+        # Navigate to the app directory
+        cd mayhem-firmware/firmware/application/external/friendly_talker
         
-        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
-          -fno-exceptions -fno-rtti \
-          -I. \
-          ui_friendly_talker.cpp -o ui_friendly_talker.o
+        echo "=== Compiling in: $(pwd) ==="
+        echo "=== Files in directory ==="
+        ls -la
+        
+        # Compile each cpp file
+        for file in *.cpp; do
+          echo "Compiling $file..."
+          arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
+            -std=c++17 \
+            -fno-exceptions -fno-rtti \
+            -I. \
+            -I.. \
+            "$file" -o "${file%.cpp}.o"
+        done
+        
+        # Create static library
+        arm-none-eabi-ar rcs libfriendly_talker.a *.o
+        
+        echo "=== Compilation complete ==="
+        ls -la *.o *.a
     
-    - name: List output
-      run: |
-        ls -la *.o
-        echo "✅ Build complete!"
-    
-    - name: Upload compiled objects
+    - name: Upload compiled library
       uses: actions/upload-artifact@v4
       with:
-        name: compiled-objects
-        path: "*.o"
+        name: friendly-talker-lib
+        path: |
+          mayhem-firmware/firmware/application/external/friendly_talker/*.o
+          mayhem-firmware/firmware/application/external/friendly_talker/*.a
+        if-no-files-found: error
