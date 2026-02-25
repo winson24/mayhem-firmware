@@ -3,7 +3,7 @@ name: Build Walkie-Talkie PPMA
 on:
   push:
     paths:
-      - 'firmware/application/external/friendly_talker/**'
+      - 'firmware/application/external/friendly_talker/**'  # This is correct now
   workflow_dispatch:
 
 jobs:
@@ -39,5 +39,5 @@ jobs:
       - name: Upload PPMA
         uses: actions/upload-artifact@v4
         with:
-          name: walkie-talkie-app
-          path: build/standalone/walkie_talkie.ppma
+          name: friendly-talker-app  # Changed name to match
+          path: build/standalone/friendly_talker.ppma  # Changed path to match
