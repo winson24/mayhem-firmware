@@ -1,6 +1,6 @@
 #include "friendly_talker.hpp"
 #include "audio.hpp"
-#include "portapack.hpp"  // Add this for set_frequency
+#include "portapack.hpp"
 
 namespace friendly_talker {
 
@@ -17,7 +17,7 @@ void init() {
 
 void set_tx_mode() {
     if (rx_active) {
-        audio::stop_rx();
+        audio::stop();
         rx_active = false;
     }
     if (!tx_active) {
@@ -52,5 +52,3 @@ void set_frequencies(uint64_t tx, uint64_t rx) {
 }
 
 } // namespace
-
-
