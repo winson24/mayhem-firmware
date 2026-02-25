@@ -1,4 +1,4 @@
-#include "friendly_talker.hpp"
+#include "walkie_talkie.hpp"
 #include "audio.hpp"
 #include "portapack.hpp"  // Add this for set_frequency
 
@@ -52,3 +52,4 @@ void set_frequencies(uint64_t tx, uint64_t rx) {
 }
 
 } // namespace
+
