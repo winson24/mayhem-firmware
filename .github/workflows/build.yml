@@ -19,38 +19,76 @@ jobs:
           wget https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2020q2/gcc-arm-none-eabi-9-2020-q2-update-x86_64-linux.tar.bz2
           tar xjf gcc-arm-none-eabi-9-2020-q2-update-x86_64-linux.tar.bz2
           echo "$(pwd)/gcc-arm-none-eabi-9-2020-q2-update/bin" >> $GITHUB_PATH
+          arm-none-eabi-gcc --version
       
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          sudo apt-get install -y cmake build-essential tree
+      
+      - name: Show Directory Structure Before Build
+        run: |
+          echo "=== Repository Structure ==="
+          find firmware/application/external -type f -name "*.cpp" -o -name "*.hpp" | sort
+          echo -e "\n=== Friendly Talker Files ==="
+          ls -la firmware/application/external/friendly_talker/
       
       - name: Configure
         run: |
           mkdir -p build
           cd build
-          cmake ..
+          cmake .. -DCMAKE_VERBOSE_MAKEFILE=ON
       
-      - name: Build Standalone Apps
+      - name: Build with Detailed Output
         run: |
           cd build
-          make standalone_apps
+          make -j4 VERBOSE=1 2>&1 | tee build_output.log
       
-      - name: Find and Upload PPMA
+      - name: Check All Build Artifacts
         run: |
-          echo "Looking for built PPMA files..."
-          find build -name "*.ppma" -type f
-          echo "Listing build/standalone/ contents:"
-          ls -la build/standalone/ || echo "standalone directory not found"
-          echo "Listing build/firmware/ contents:"
-          ls -la build/firmware/ || echo "firmware directory not found"
+          echo "=== All .ppma files in build directory ==="
+          find build -name "*.ppma" -type f | tee ppma_files.txt
+          
+          echo -e "\n=== All .bin files in build directory ==="
+          find build -name "*.bin" -type f
+          
+          echo -e "\n=== All .elf files in build directory ==="
+          find build -name "*.elf" -type f
+          
+          echo -e "\n=== Checking for friendly_talker specifically ==="
+          find build -name "*friendly*" -o -name "*talker*" | sort
+          
+          echo -e "\n=== Build output log summary ==="
+          grep -i "friendly\|talker\|ppma" build/build_output.log | head -20
       
-      - name: Upload PPMA
+      - name: Check CMake Cache
+        run: |
+          echo "=== CMake Cache Variables ==="
+          grep -i "friendly\|talker" build/CMakeCache.txt || echo "No friendly_talker in cache"
+          
+          echo -e "\n=== CMake Files ==="
+          find build -name "*.cmake" -exec grep -l "friendly_talker" {} \;
+      
+      - name: Try Building Specific Target
+        run: |
+          cd build
+          make friendly_talker 2>&1 | tee friendly_build.log
+          
+          echo -e "\n=== After friendly_talker target ==="
+          find . -name "*friendly*" -o -name "*talker*" | sort
+      
+      - name: Upload All Build Outputs
         uses: actions/upload-artifact@v4
         with:
-          name: friendly-talker-app
+          name: complete-build-output
           path: |
-            build/standalone/*.ppma
-            build/firmware/*.ppma
-            **/*.ppma
+            build/
+            *.log
+          if-no-files-found: warn
+      
+      - name: Upload Build Log
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build/build_output.log
           if-no-files-found: warn
