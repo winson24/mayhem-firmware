@@ -1,28 +1,36 @@
-## Physical layer
-set(SOURCE_Layer1
+## Source files
+set(SOURCE
+    main.cpp
     friendly_talker.cpp
-)
-
-## Application layer
-set(SOURCE_Layer2
     ui_friendly_talker.cpp
 )
 
-## Actual source files used in project
-set(SOURCE
-    ${SOURCE_Layer1}
-    ${SOURCE_Layer2}
+## Create executable (this makes the .ppma file)
+add_executable(friendly_talker ${SOURCE})
+
+## Link with required PortaPack libraries
+target_link_libraries(friendly_talker
+    app        # Main application framework
+    ui         # UI widgets
+    portapack  # Core functionality
+    hardware   # Hardware access
+    audio      # Audio support
+    baseband   # Baseband processing
 )
 
-## Module name
-set(COMPONENT friendly_talker)
+## Set output properties for standalone app
+set_target_properties(friendly_talker PROPERTIES
+    OUTPUT_NAME "friendly_talker"
+    SUFFIX ".ppma"
+    PREFIX ""
+)
 
-## Include sources
-add_library(${COMPONENT} ${SOURCE})
+## Include directories
+target_include_directories(friendly_talker PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
-## Include headers
-target_include_directories(${COMPONENT} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-
-## Link component to main firmware
-target_link_libraries(${COMPONENT} app)
-
+## Install to standalone directory
+install(TARGETS friendly_talker
+    RUNTIME DESTINATION standalone
+)
