@@ -1,4 +1,4 @@
-name: Build Walkie Talkie PPMA
+name: Package Walkie Talkie PPMA
 
 on:
   push:
@@ -8,90 +8,58 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  package:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Show directory structure
+    - name: Show files
       run: |
         echo "=== Current directory ==="
         pwd
         echo "=== Finding all files ==="
-        find . -name "*.cpp" -o -name "*.hpp" | sort
+        find . -type f | sort
     
-    - name: Install dependencies
+    - name: Create PPMA package
       run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          cmake \
-          gcc-arm-none-eabi \
-          libnewlib-arm-none-eabi \
-          git
-    
-    - name: Clone Mayhem firmware
-      run: |
-        git clone --recursive https://github.com/portapack-mayhem/Mayhem-Firmware.git
-    
-    - name: Copy app from correct location
-      run: |
-        # Source path (where your files are in the repo)
-        SOURCE_PATH="firmware/application/external/friendly_talker"
+        # Find the app directory
+        APP_DIR=$(find . -type d -name "friendly_talker" | head -1)
         
-        # Destination path in Mayhem firmware
-        DEST_PATH="Mayhem-Firmware/firmware/application/external/friendly_talker"
-        
-        echo "=== Copying from $SOURCE_PATH to $DEST_PATH ==="
-        
-        # Check if source exists
-        if [ ! -d "$SOURCE_PATH" ]; then
-          echo "❌ Source directory not found: $SOURCE_PATH"
-          echo "=== Looking for alternative locations ==="
-          find . -type d -name "friendly_talker" | head -5
+        if [ -z "$APP_DIR" ]; then
+          echo "❌ Could not find friendly_talker directory"
           exit 1
         fi
         
-        # Create destination and copy files
-        mkdir -p "$DEST_PATH"
-        cp -v "$SOURCE_PATH"/*.cpp "$DEST_PATH/"
-        cp -v "$SOURCE_PATH"/*.hpp "$DEST_PATH/"
-        cp -v "$SOURCE_PATH"/CMakeLists.txt "$DEST_PATH/" 2>/dev/null || echo "No CMakeLists.txt found"
+        echo "✅ Found app directory: $APP_DIR"
+        cd "$APP_DIR"
         
-        echo "=== Files copied ==="
-        ls -la "$DEST_PATH/"
+        echo "=== Files in app directory ==="
+        ls -la
+        
+        # Create manifest.json
+        cat > manifest.json << 'EOF'
+{
+  "name": "Friendly Talker",
+  "version": "1.0",
+  "type": "external",
+  "target": "portapack",
+  "description": "Walkie Talkie app with earphone PTT support",
+  "author": "Your Name",
+  "license": "GPL"
+}
+EOF
+        
+        # Create the PPMA file (zip with .ppma extension)
+        zip -r ../../friendly_talker.ppma . -x "*.git*"
+        
+        echo "=== PPMA package created ==="
+        ls -la ../../friendly_talker.ppma
     
-    - name: Build external apps
-      run: |
-        cd Mayhem-Firmware
-        mkdir -p build
-        cd build
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-arm-cortex-m4.cmake \
-                 -DEXTERNAL_APPS=ON
-        make -j$(nproc) external_apps || make -j$(nproc)
-    
-    - name: Find PPMA files
-      run: |
-        echo "=== Searching for .ppma files ==="
-        find Mayhem-Firmware -name "*.ppma" -type f
-        
-        # Create output directory
-        mkdir -p ppma_output
-        find Mayhem-Firmware -name "*.ppma" -type f -exec cp {} ppma_output/ \;
-        
-        # Also look for .bin files as fallback
-        if [ -z "$(ls -A ppma_output)" ]; then
-          echo "No PPMA found, looking for .bin files..."
-          find Mayhem-Firmware/build -name "*.bin" -exec cp {} ppma_output/ \;
-        fi
-        
-        echo "=== Files ready for download ==="
-        ls -la ppma_output/
-    
-    - name: Upload app files
+    - name: Upload PPMA
       uses: actions/upload-artifact@v4
       with:
-        name: friendly-talker-app
-        path: ppma_output/
-        if-no-files-found: warn
+        name: friendly-talker-ppma
+        path: "*.ppma"
+        if-no-files-found: error
