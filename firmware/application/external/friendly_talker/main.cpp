@@ -3,7 +3,7 @@
 
 int main() {
     NavigationView nav;
-    nav.push<WalkieTalkieView>();
+    nav.push<ui::external_app::friendly_talker::FriendlyTalkerView>();
     
     return 0;
 }
