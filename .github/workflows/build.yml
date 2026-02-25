@@ -3,8 +3,6 @@ name: Build Friendly Talker
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -12,47 +10,58 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
+    - name: Checkout
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        fetch-depth: 0
         
     - name: Install dependencies
       run: |
         sudo apt update
         sudo apt install -y \
           cmake \
-          gcc-arm-none-eabi \
           python3 \
+          python3-pip \
           lz4 \
-          dfu-util
+          dfu-util \
+          gcc-arm-none-eabi \
+          binutils-arm-none-eabi \
+          libnewlib-arm-none-eabi \
+          libstdc++-arm-none-eabi-newlib \
+          build-essential
           
+    - name: Check compiler
+      run: |
+        arm-none-eabi-gcc --version
+        cmake --version
+        python3 --version
+        
     - name: Configure
       run: |
         mkdir -p build
         cd build
-        cmake ..
+        cmake .. -DCMAKE_VERBOSE_MAKEFILE=ON
         
-    - name: Show available targets
+    - name: Build with full output
       run: |
         cd build
-        make help | grep -E "(app|standalone|external)" || echo "No specific targets found"
+        make VERBOSE=1 2>&1 | tee build.log
         
-    - name: Build everything
-      run: |
-        cd build
-        make -j2
-        
-    - name: Find .ppma files
-      run: |
-        echo "Searching for .ppma files..."
-        find . -name "*.ppma" -type f
-        mkdir -p artifacts
-        find . -name "*.ppma" -type f -exec cp {} artifacts/ \;
-        
-    - name: Upload artifact
+    - name: Upload build log
       uses: actions/upload-artifact@v4
       with:
-        name: friendly-talker
-        path: artifacts/
-        if-no-files-found: warn
+        name: build-log
+        path: build/build.log
+        
+    - name: Check for Friendly Talker
+      run: |
+        echo "=== Checking if your app is recognized ==="
+        grep -r "friendly_talker" build/ || echo "No friendly_talker in build"
+        echo ""
+        echo "=== Checking external directory ==="
+        ls -la external/
+        echo ""
+        echo "=== Checking your app files ==="
+        ls -la external/friendly_talker/
+        ls -la external/friendly_talker/src/
