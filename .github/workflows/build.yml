@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'firmware/application/external/friendly_talker/**'
+      - 'firmware/application/CMakeLists.txt'
   workflow_dispatch:
 
 jobs:
@@ -22,29 +23,55 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential
+          sudo apt-get install -y cmake build-essential tree
       
-      - name: Configure
+      - name: Show Your Files
         run: |
+          echo "=== Your friendly_talker folder contents ==="
+          tree firmware/application/external/friendly_talker/
+          echo -e "\n=== Your CMakeLists.txt entry ==="
+          grep -A5 -B5 "friendly_talker" firmware/application/CMakeLists.txt || echo "Not found!"
+      
+      - name: Clean Build Directory Completely
+        run: |
+          rm -rf build
           mkdir -p build
-          cd build
-          cmake ..
       
-      - name: Build Only Friendly Talker
+      - name: Configure from Scratch
         run: |
           cd build
-          make friendly_talker -j1
+          cmake .. -DCMAKE_VERBOSE_MAKEFILE=ON
+      
+      - name: Check Generated Build Files
+        run: |
+          echo "=== Checking if your app is in build files ==="
+          grep -r "friendly_talker" build/CMakeFiles/ || echo "Not found in CMakeFiles"
+          echo -e "\n=== Available targets ==="
+          cd build
+          make help | grep -E "friendly|talker" || echo "No friendly_talker target found"
+      
+      - name: Build Your Specific App
+        run: |
+          cd build
+          make friendly_talker VERBOSE=1
+      
+      - name: If that fails, try building standalone_apps
+        if: failure()
+        run: |
+          cd build
+          make standalone_apps VERBOSE=1
       
       - name: Find Built Files
         run: |
-          echo "=== Looking for friendly_talker ==="
-          find build -name "*friendly_talker*" -o -name "*.ppma"
+          echo "=== Searching for .ppma files ==="
+          find build -name "*.ppma" -type f
+          
+          echo -e "\n=== Searching for friendly_talker files ==="
+          find build -name "*friendly*" -o -name "*talker*"
       
       - name: Upload PPMA
         uses: actions/upload-artifact@v4
         with:
           name: friendly-talker-app
-          path: |
-            build/**/friendly_talker.ppma
-            build/**/*.ppma
+          path: build/**/*.ppma
           if-no-files-found: warn
