@@ -10,13 +10,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       with:
         submodules: recursive
-        
+
     - name: Install dependencies
       run: |
         sudo apt update
@@ -24,16 +24,16 @@ jobs:
         wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
         tar xjf gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
         echo "$(pwd)/gcc-arm-none-eabi-9-2019-q4-major/bin" >> $GITHUB_PATH
-        
+
     - name: Build
       run: |
         mkdir build
         cd build
         cmake ..
         make standalone_apps
-        
+
     - name: Upload .ppma artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4  # Updated to v4
       with:
         name: friendly-talker-ppma
         path: build/external/friendly_talker/*.ppma
