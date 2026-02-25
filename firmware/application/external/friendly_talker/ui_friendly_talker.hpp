@@ -1,11 +1,11 @@
-#ifndef UI_WALKIE_TALKIE_HPP
-#define UI_WALKIE_TALKIE_HPP
+#ifndef FRIENDLY_TALKER_HPP
+#define FRIENDLY_TALKER_HPP
 
 #include "ui.hpp"
 #include "ui_widget.hpp"
 #include "ui_navigation.hpp"
 
-namespace ui::external_app::walkie_talkie {
+namespace ui::external_app::friendly_talker {
 
 class WalkieTalkieView : public View {
 public:
