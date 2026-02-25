@@ -15,12 +15,14 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Show directory structure
+    - name: Show current directory structure
       run: |
         echo "=== Current directory ==="
         pwd
-        echo "=== Listing all files ==="
-        find . -type f -name "*.cpp" -o -name "*.hpp" | sort
+        echo "=== All files in repository ==="
+        ls -la
+        echo "=== Looking for cpp files ==="
+        find . -name "*.cpp" -type f
     
     - name: Install ARM GCC
       run: |
@@ -29,25 +31,40 @@ jobs:
     
     - name: Compile friendly_talker app
       run: |
-        # Navigate to the app directory
-        cd mayhem-firmware/firmware/application/external/friendly_talker
+        # Files are in current directory (repository root)
+        echo "=== Compiling files in: $(pwd) ==="
         
-        echo "=== Compiling in: $(pwd) ==="
-        echo "=== Files in directory ==="
-        ls -la
+        # Check if files exist
+        if [ ! -f "friendly_talker.cpp" ]; then
+          echo "❌ friendly_talker.cpp not found!"
+          exit 1
+        fi
         
-        # Compile each cpp file
-        for file in *.cpp; do
-          echo "Compiling $file..."
-          arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
-            -std=c++17 \
-            -fno-exceptions -fno-rtti \
-            -I. \
-            -I.. \
-            "$file" -o "${file%.cpp}.o"
-        done
+        if [ ! -f "ui_friendly_talker.cpp" ]; then
+          echo "❌ ui_friendly_talker.cpp not found!"
+          exit 1
+        fi
+        
+        echo "✅ Found source files"
+        
+        # Compile friendly_talker.cpp
+        echo "Compiling friendly_talker.cpp..."
+        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
+          -std=c++17 \
+          -fno-exceptions -fno-rtti \
+          -I. \
+          friendly_talker.cpp -o friendly_talker.o
+        
+        # Compile ui_friendly_talker.cpp
+        echo "Compiling ui_friendly_talker.cpp..."
+        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
+          -std=c++17 \
+          -fno-exceptions -fno-rtti \
+          -I. \
+          ui_friendly_talker.cpp -o ui_friendly_talker.o
         
         # Create static library
+        echo "Creating library..."
         arm-none-eabi-ar rcs libfriendly_talker.a *.o
         
         echo "=== Compilation complete ==="
@@ -58,6 +75,6 @@ jobs:
       with:
         name: friendly-talker-lib
         path: |
-          mayhem-firmware/firmware/application/external/friendly_talker/*.o
-          mayhem-firmware/firmware/application/external/friendly_talker/*.a
+          *.o
+          *.a
         if-no-files-found: error
