@@ -1,25 +1,30 @@
-#ifndef FRIENDLY_TALKER_HPP
-#define FRIENDLY_TALKER_HPP
+#ifndef UI_FRIENDLY_TALKER_HPP
+#define UI_FRIENDLY_TALKER_HPP
 
 #include "ui.hpp"
 #include "ui_widget.hpp"
 #include "ui_navigation.hpp"
+#include "ui_font_fixed_8x16.hpp"
 
 namespace ui::external_app::friendly_talker {
 
-class WalkieTalkieView : public View {
+class FriendlyTalkerView : public View {
 public:
-    WalkieTalkieView(NavigationView& nav);
+    FriendlyTalkerView(NavigationView& nav);
     
     void focus() override {
         field_tx_freq.focus();
+    }
+    
+    std::string title() const override {
+        return "Friendly Talker";
     }
     
 private:
     // UI Elements
     Text text_title {
         { 0 * 8, 0, 30 * 8, 16 },
-        "WALKIE TALKIE"
+        "FRIENDLY TALKER"
     };
     
     Label label_tx {
@@ -42,7 +47,7 @@ private:
     
     Checkbox checkbox_same {
         { 4 * 8, 6 * 16 },
-        9,
+        12,
         "Same as TX"
     };
     
@@ -70,6 +75,16 @@ private:
     Button button_ptt {
         { 8 * 8, 11 * 16, 12 * 8, 32 },
         "PTT"
+    };
+    
+    Label label_status {
+        { 0 * 8, 13 * 16 },
+        "Status:"
+    };
+    
+    Text text_status {
+        { 7 * 8, 13 * 16, 20 * 8, 16 },
+        "RX"
     };
     
     void on_earphone_button();
