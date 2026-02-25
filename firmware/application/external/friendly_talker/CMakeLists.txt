@@ -1,11 +1,11 @@
 ## Physical layer
 set(SOURCE_Layer1
-    walkie_talkie.cpp
+    friendly_talker.cpp
 )
 
 ## Application layer
 set(SOURCE_Layer2
-    ui_walkie_talkie.cpp
+    ui_friendly_talker.cpp
 )
 
 ## Actual source files used in project
@@ -15,7 +15,7 @@ set(SOURCE
 )
 
 ## Module name
-set(COMPONENT walkie_talkie)
+set(COMPONENT friendly_talker)
 
 ## Include sources
 add_library(${COMPONENT} ${SOURCE})
@@ -25,3 +25,4 @@ target_include_directories(${COMPONENT} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 ## Link component to main firmware
 target_link_libraries(${COMPONENT} app)
+
