@@ -1,23 +1,27 @@
-# Add to firmware/application/CMakeLists.txt
-
-add_executable(walkie_talkie.elf
-    walkie_talkie_app.cpp
-    ui_navigation.cpp
-    ui_receiver.cpp
-    ui_transmitter.cpp
-    audio_output.cpp
-    audio_input.cpp
+## Physical layer
+set(SOURCE_Layer1
+    walkie_talkie.cpp
 )
 
-target_link_libraries(walkie_talkie.elf
-    portapack
-    baseband
-    hardware
-    lpc43xx
+## Application layer
+set(SOURCE_Layer2
+    ui_walkie_talkie.cpp
 )
 
-# Install to SD card
-install(TARGETS walkie_talkie.elf
-    RUNTIME DESTINATION /apps
-    CONFIGURATIONS Release
+## Actual source files used in project
+set(SOURCE
+    ${SOURCE_Layer1}
+    ${SOURCE_Layer2}
 )
+
+## Module name
+set(COMPONENT walkie_talkie)
+
+## Include sources
+add_library(${COMPONENT} ${SOURCE})
+
+## Include headers
+target_include_directories(${COMPONENT} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+## Link component to main firmware
+target_link_libraries(${COMPONENT} app)
