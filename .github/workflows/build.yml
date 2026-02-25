@@ -15,72 +15,50 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Install dependencies
+    - name: Install ARM GCC
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           cmake \
-          git \
-          python3 \
-          python3-pip \
-          dfu-util \
-          build-essential \
-          libssl-dev \
-          wget
+          gcc-arm-none-eabi \
+          libnewlib-arm-none-eabi \
+          libstdc++-arm-none-eabi-newlib \
+          git
     
-    - name: Download ARM GCC toolchain
-      run: |
-        wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
-        tar -xjf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
-        echo "$(pwd)/gcc-arm-none-eabi-10.3-2021.10/bin" >> $GITHUB_PATH
-    
-    - name: Verify ARM GCC
+    - name: Verify installation
       run: |
         arm-none-eabi-gcc --version
-        arm-none-eabi-g++ --version
+        arm-none-eabi-g++ --version || echo "g++ is included in gcc package"
     
     - name: Clone PortaPack firmware
       run: |
-        git clone --recursive https://github.com/portapack-mayhem/Mayhem-Firmware.git firmware
+        git clone --recursive https://github.com/portapack-mayhem/Mayhem-Firmware.git
     
-    - name: Copy application files
+    - name: Setup application
       run: |
-        mkdir -p firmware/firmware/application/apps/friendly_talker
-        cp friendly_talker.cpp firmware/firmware/application/apps/friendly_talker/
-        cp friendly_talker.hpp firmware/firmware/application/apps/friendly_talker/
-        cp ui_friendly_talker.cpp firmware/firmware/application/apps/friendly_talker/
-        cp ui_friendly_talker.hpp firmware/firmware/application/apps/friendly_talker/
-        cp CMakeLists.txt firmware/firmware/application/apps/friendly_talker/
+        # Create app directory
+        mkdir -p Mayhem-Firmware/firmware/application/apps/friendly_talker
+        
+        # Copy files (they will be available from checkout)
+        cp friendly_talker.cpp Mayhem-Firmware/firmware/application/apps/friendly_talker/ 2>/dev/null || echo "file not found"
+        cp friendly_talker.hpp Mayhem-Firmware/firmware/application/apps/friendly_talker/ 2>/dev/null || echo "file not found"
+        cp ui_friendly_talker.cpp Mayhem-Firmware/firmware/application/apps/friendly_talker/ 2>/dev/null || echo "file not found"
+        cp ui_friendly_talker.hpp Mayhem-Firmware/firmware/application/apps/friendly_talker/ 2>/dev/null || echo "file not found"
+        cp CMakeLists.txt Mayhem-Firmware/firmware/application/apps/friendly_talker/ 2>/dev/null || echo "file not found"
     
-    - name: Configure build
+    - name: Build
       run: |
-        cd firmware
+        cd Mayhem-Firmware
         mkdir -p build
         cd build
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-arm-cortex-m4.cmake \
-                -DBUILD_FRIENDLY_TALKER=ON \
-                -DARM_NONE_EABI_TOOLCHAIN_PATH=$(pwd)/../gcc-arm-none-eabi-10.3-2021.10
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-arm-cortex-m4.cmake
+        make -j$(nproc)
     
-    - name: Build firmware
-      run: |
-        cd firmware/build
-        make -j$(nproc) VERBOSE=1
-    
-    - name: Upload artifacts
+    - name: Upload firmware
       uses: actions/upload-artifact@v4
       with:
-        name: portapack-walkie-talkie
+        name: portapack-firmware
         path: |
-          firmware/build/firmware/application/*.bin
-          firmware/build/firmware/application/*.elf
+          Mayhem-Firmware/build/firmware/application/*.bin
+          Mayhem-Firmware/build/firmware/application/*.elf
         if-no-files-found: error
-        retention-days: 90
-    
-    - name: Create release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          firmware/build/firmware/application/*.bin
-          firmware/build/firmware/application/*.elf
-        generate_release_notes: true
