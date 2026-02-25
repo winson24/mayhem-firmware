@@ -315,9 +315,9 @@ set(EXTCPPSRC
 	external/pocsag_tx/ui_pocsag_tx.cpp
 
 	# walkie_talkie - Your custom walkie-talkie app with earphone PTT
-	external/walkie_talkie/main.cpp
-	external/walkie_talkie/walkie_talkie.cpp
-	external/walkie_talkie/ui_walkie_talkie.cpp
+	external/friendly_talker/main.cpp
+	external/friendly_talker/friendly_talker.cpp
+	external/friendly_talker/ui_friendly_talker.cpp
 )
 
 set(EXTAPPLIST
@@ -396,7 +396,7 @@ set(EXTAPPLIST
 	rtty_rx
 	rtty_tx
 	pocsag_tx
-	walkie_talkie  # Add your app here
+	friendly_talker  # Add your app here
 )
 
 # sdusb has type conflicts with PRALINE (HackRF Pro) - add only for non-PRALINE builds
