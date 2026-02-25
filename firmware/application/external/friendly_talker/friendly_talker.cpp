@@ -1,7 +1,7 @@
-#include "walkie_talkie.hpp"
+#include "friendly_talker.hpp"
 #include "audio.hpp"
 
-namespace walkie_talkie {
+namespace friendly_talker {
 
 bool tx_active = false;
 bool rx_active = true;
@@ -51,3 +51,4 @@ void set_frequencies(uint64_t tx, uint64_t rx) {
 }
 
 } // namespace
+
