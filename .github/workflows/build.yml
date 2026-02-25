@@ -3,7 +3,7 @@ name: Build Walkie-Talkie PPMA
 on:
   push:
     paths:
-      - 'firmware/application/external/friendly_talker/**'  # This is correct now
+      - 'firmware/application/external/friendly_talker/**'
   workflow_dispatch:
 
 jobs:
@@ -36,8 +36,21 @@ jobs:
           cd build
           make standalone_apps
       
+      - name: Find and Upload PPMA
+        run: |
+          echo "Looking for built PPMA files..."
+          find build -name "*.ppma" -type f
+          echo "Listing build/standalone/ contents:"
+          ls -la build/standalone/ || echo "standalone directory not found"
+          echo "Listing build/firmware/ contents:"
+          ls -la build/firmware/ || echo "firmware directory not found"
+      
       - name: Upload PPMA
         uses: actions/upload-artifact@v4
         with:
-          name: friendly-talker-app  # Changed name to match
-          path: build/standalone/friendly_talker.ppma  # Changed path to match
+          name: friendly-talker-app
+          path: |
+            build/standalone/*.ppma
+            build/firmware/*.ppma
+            **/*.ppma
+          if-no-files-found: warn
