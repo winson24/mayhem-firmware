@@ -10,7 +10,7 @@ jobs:
   build-ppma:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v3
         with:
           submodules: recursive
       
@@ -37,7 +37,7 @@ jobs:
           make standalone_apps
       
       - name: Upload PPMA
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: walkie-talkie-app
           path: build/standalone/walkie_talkie.ppma
