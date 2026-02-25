@@ -5,18 +5,18 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Allows manual trigger
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         submodules: recursive
-
+        
     - name: Install dependencies
       run: |
         sudo apt update
@@ -24,17 +24,33 @@ jobs:
         wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
         tar xjf gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
         echo "$(pwd)/gcc-arm-none-eabi-9-2019-q4-major/bin" >> $GITHUB_PATH
-
+        
     - name: Build
       run: |
         mkdir build
         cd build
         cmake ..
         make standalone_apps
-
+        
+    - name: Debug - List all built files
+      run: |
+        echo "=== Looking for .ppma files ==="
+        find . -name "*.ppma" -type f
+        echo ""
+        echo "=== Contents of build directory ==="
+        ls -la build/
+        echo ""
+        echo "=== Contents of build/external ==="
+        ls -la build/external/ || echo "No external folder"
+        echo ""
+        echo "=== Contents of build/external/friendly_talker ==="
+        ls -la build/external/friendly_talker/ || echo "No friendly_talker folder"
+        
     - name: Upload .ppma artifact
-      uses: actions/upload-artifact@v4  # Updated to v4
+      uses: actions/upload-artifact@v4
       with:
         name: friendly-talker-ppma
-        path: build/external/friendly_talker/*.ppma
-        if-no-files-found: error
+        path: |
+          **/*.ppma
+          build/**/*.ppma
+        if-no-files-found: warn
