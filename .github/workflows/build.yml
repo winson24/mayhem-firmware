@@ -16,9 +16,27 @@ jobs:
       
       - name: Install ARM Toolchain
         run: |
-          wget https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2020q2/gcc-arm-none-eabi-9-2020-q2-update-x86_64-linux.tar.bz2
-          tar xjf gcc-arm-none-eabi-9-2020-q2-update-x86_64-linux.tar.bz2
+          # Download the toolchain
+          wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2020q2/gcc-arm-none-eabi-9-2020-q2-update-x86_64-linux.tar.bz2
+          
+          # Extract it
+          tar -xjf gcc-arm-none-eabi-9-2020-q2-update-x86_64-linux.tar.bz2
+          
+          # Add to PATH for this session
           echo "$(pwd)/gcc-arm-none-eabi-9-2020-q2-update/bin" >> $GITHUB_PATH
+          
+          # Also set environment variable for current step
+          export PATH="$PATH:$(pwd)/gcc-arm-none-eabi-9-2020-q2-update/bin"
+          
+          # Verify installation
+          which arm-none-eabi-gcc || echo "gcc not in PATH yet"
+          ls -la gcc-arm-none-eabi-9-2020-q2-update/bin/
+      
+      - name: Verify Toolchain
+        run: |
+          # Now PATH should be updated from previous step
+          echo "PATH: $PATH"
+          which arm-none-eabi-gcc
           arm-none-eabi-gcc --version
       
       - name: Install Dependencies
@@ -37,58 +55,26 @@ jobs:
         run: |
           mkdir -p build
           cd build
-          cmake .. -DCMAKE_VERBOSE_MAKEFILE=ON
+          cmake ..
       
-      - name: Build with Detailed Output
+      - name: Build
         run: |
           cd build
-          make -j4 VERBOSE=1 2>&1 | tee build_output.log
+          make -j4
       
-      - name: Check All Build Artifacts
+      - name: Find Built Files
         run: |
-          echo "=== All .ppma files in build directory ==="
-          find build -name "*.ppma" -type f | tee ppma_files.txt
+          echo "=== Looking for .ppma files ==="
+          find build -name "*.ppma" -type f
           
-          echo -e "\n=== All .bin files in build directory ==="
-          find build -name "*.bin" -type f
-          
-          echo -e "\n=== All .elf files in build directory ==="
-          find build -name "*.elf" -type f
-          
-          echo -e "\n=== Checking for friendly_talker specifically ==="
-          find build -name "*friendly*" -o -name "*talker*" | sort
-          
-          echo -e "\n=== Build output log summary ==="
-          grep -i "friendly\|talker\|ppma" build/build_output.log | head -20
+          echo -e "\n=== Looking for friendly_talker files ==="
+          find build -name "*friendly*" -o -name "*talker*"
       
-      - name: Check CMake Cache
-        run: |
-          echo "=== CMake Cache Variables ==="
-          grep -i "friendly\|talker" build/CMakeCache.txt || echo "No friendly_talker in cache"
-          
-          echo -e "\n=== CMake Files ==="
-          find build -name "*.cmake" -exec grep -l "friendly_talker" {} \;
-      
-      - name: Try Building Specific Target
-        run: |
-          cd build
-          make friendly_talker 2>&1 | tee friendly_build.log
-          
-          echo -e "\n=== After friendly_talker target ==="
-          find . -name "*friendly*" -o -name "*talker*" | sort
-      
-      - name: Upload All Build Outputs
+      - name: Upload PPMA
         uses: actions/upload-artifact@v4
         with:
-          name: complete-build-output
+          name: friendly-talker-app
           path: |
-            build/
-            *.log
-          if-no-files-found: warn
-      
-      - name: Upload Build Log
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: build/build_output.log
+            build/**/*.ppma
+            build/**/friendly*
           if-no-files-found: warn
