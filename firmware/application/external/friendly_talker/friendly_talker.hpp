@@ -1,9 +1,9 @@
-#ifndef WALKIE_TALKIE_HPP
-#define WALKIE_TALKIE_HPP
+#ifndef FRIENDLY_TALKER_HPP
+#define FRIENDLY_TALKER_HPP
 
 #include <cstdint>
 
-namespace walkie_talkie {
+namespace friendly_talker {
 
 void init();
 void set_tx_mode();
@@ -17,3 +17,4 @@ extern bool rx_active;
 } // namespace
 
 #endif
+
