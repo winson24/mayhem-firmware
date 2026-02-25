@@ -1,4 +1,4 @@
-name: Package Walkie Talkie PPMA
+name: Package Friendly Talker App
 
 on:
   push:
@@ -15,42 +15,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Create temp directory and copy files
+    - name: Package app
       run: |
-        # Create temp directory
-        mkdir -p temp_app
+        # Go to the app directory
+        cd firmware/application/external/friendly_talker
         
-        # Copy all app files
-        cp firmware/application/external/friendly_talker/*.cpp temp_app/ 2>/dev/null || true
-        cp firmware/application/external/friendly_talker/*.hpp temp_app/ 2>/dev/null || true
-        cp firmware/application/external/friendly_talker/CMakeLists.txt temp_app/ 2>/dev/null || true
+        # Create manifest file
+        echo '{
+          "name": "Friendly Talker",
+          "version": "1.0",
+          "type": "app"
+        }' > manifest.json
         
-        echo "=== Files copied to temp_app ==="
-        ls -la temp_app/
-    
-    - name: Package as PPMA
-      run: |
-        cd temp_app
-        
-        # Create manifest
-        cat > manifest.json << EOF
-{
-  "name": "Friendly Talker",
-  "version": "1.0",
-  "type": "external",
-  "target": "portapack",
-  "description": "Walkie Talkie app"
-}
-EOF
-        
-        # Create PPMA
-        zip -r ../friendly_talker.ppma *
-        
-        echo "=== PPMA created ==="
-        ls -la ../friendly_talker.ppma
+        # Create the PPMA file (just a zip)
+        zip -r ../../../../friendly_talker.ppma *
     
     - name: Upload PPMA
       uses: actions/upload-artifact@v4
       with:
-        name: friendly-talker-ppma
+        name: friendly-talker
         path: friendly_talker.ppma
