@@ -1,132 +1,119 @@
-#!/usr/bin/env python3
-"""
-PPMA File Generator for HackRF PortaPack Mayhem
-Place this in your external/ directory
-"""
+name: Build PPMA Files for HackRF PortaPack
 
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  build-ppma:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy pillow  # Add any other dependencies
+    
+    - name: Create PPMA files
+      run: |
+        # Create a directory for output files
+        mkdir -p ppma_output
+        
+        # Run your PPMA generation script
+        # Assuming you have a script in external/ directory
+        if [ -f "external/generate_ppma.py" ]; then
+          python external/generate_ppma.py --output ppma_output/
+        else
+          echo "Creating example PPMA files..."
+          # Create a simple Python script to generate PPMA files
+          cat > generate_ppma.py << 'EOF'
+#!/usr/bin/env python3
 import numpy as np
 import struct
-import argparse
 import os
-from pathlib import Path
+import sys
 
-class PPMAGenerator:
-    def __init__(self, sample_rate=8000):
-        self.sample_rate = sample_rate
-        self.samples = []
+def create_simple_ppma(filename, frequency=1000, duration_ms=1000):
+    """Create a simple PPMA file with a sine wave"""
+    sample_rate = 8000
+    num_samples = int(sample_rate * duration_ms / 1000)
+    t = np.linspace(0, duration_ms/1000, num_samples)
+    samples = 0.5 * np.sin(2 * np.pi * frequency * t)
     
-    def add_tone(self, frequency_hz, duration_ms, amplitude=0.5):
-        """Add a sine wave tone"""
-        num_samples = int(self.sample_rate * duration_ms / 1000)
-        t = np.linspace(0, duration_ms/1000, num_samples)
-        tone = amplitude * np.sin(2 * np.pi * frequency_hz * t)
-        self.samples.extend(tone)
-        return self
+    # Convert to int16
+    audio_int16 = (samples * 32767).astype(np.int16)
     
-    def add_silence(self, duration_ms):
-        """Add silence"""
-        num_samples = int(self.sample_rate * duration_ms / 1000)
-        self.samples.extend(np.zeros(num_samples))
-        return self
+    # Write PPMA file (simplified format)
+    with open(filename, 'wb') as f:
+        # Simple header
+        f.write(b'PPMA')
+        f.write(struct.pack('<I', sample_rate))
+        f.write(struct.pack('<I', len(audio_int16)))
+        # Write audio data
+        f.write(audio_int16.tobytes())
     
-    def add_dtmf(self, digits, tone_duration_ms=200, gap_ms=50):
-        """Add DTMF sequence"""
-        dtmf_freqs = {
-            '1': (697,1209), '2': (697,1336), '3': (697,1477), 'A': (697,1633),
-            '4': (770,1209), '5': (770,1336), '6': (770,1477), 'B': (770,1633),
-            '7': (852,1209), '8': (852,1336), '9': (852,1477), 'C': (852,1633),
-            '*': (941,1209), '0': (941,1336), '#': (941,1477), 'D': (941,1633),
-        }
-        
-        for digit in digits.upper():
-            if digit in dtmf_freqs:
-                f1, f2 = dtmf_freqs[digit]
-                num_samples = int(self.sample_rate * tone_duration_ms / 1000)
-                t = np.linspace(0, tone_duration_ms/1000, num_samples)
-                tone = 0.3 * (np.sin(2 * np.pi * f1 * t) + np.sin(2 * np.pi * f2 * t))
-                self.samples.extend(tone)
-                
-                # Add gap
-                gap_samples = int(self.sample_rate * gap_ms / 1000)
-                self.samples.extend(np.zeros(gap_samples))
-        
-        return self
-    
-    def add_sweep(self, start_freq, end_freq, duration_ms):
-        """Add frequency sweep"""
-        num_samples = int(self.sample_rate * duration_ms / 1000)
-        t = np.linspace(0, duration_ms/1000, num_samples)
-        freqs = np.linspace(start_freq, end_freq, num_samples)
-        phase = 2 * np.pi * np.cumsum(freqs) / self.sample_rate
-        sweep = 0.5 * np.sin(phase)
-        self.samples.extend(sweep)
-        return self
-    
-    def save(self, filename):
-        """Save as PPMA file"""
-        # Convert to int16
-        audio_int16 = (np.array(self.samples) * 32767).astype(np.int16)
-        
-        with open(filename, 'wb') as f:
-            # Write header
-            f.write(b'PPMA')  # Magic number
-            f.write(struct.pack('<I', self.sample_rate))  # Sample rate
-            f.write(struct.pack('<I', len(audio_int16)))  # Number of samples
-            
-            # Optional: add metadata comment
-            comment = b"Generated for HackRF PortaPack Mayhem"
-            f.write(struct.pack('<I', len(comment)))
-            f.write(comment)
-            
-            # Write audio data
-            f.write(audio_int16.tobytes())
-        
-        print(f"Saved: {filename} ({len(audio_int16)/self.sample_rate:.2f} seconds)")
-
-def main():
-    parser = argparse.ArgumentParser(description='Generate PPMA files for HackRF PortaPack')
-    parser.add_argument('--output', '-o', default='./output', 
-                       help='Output directory for PPMA files')
-    args = parser.parse_args()
-    
-    # Create output directory
-    output_dir = Path(args.output)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Generate various test files
-    
-    # 1. Simple test tones
-    gen = PPMAGenerator()
-    gen.add_tone(1000, 2000)  # 1kHz for 2 seconds
-    gen.save(output_dir / 'test_1khz.ppma')
-    
-    # 2. DTMF example
-    gen = PPMAGenerator()
-    gen.add_dtmf('1234567890*#', 150, 50)
-    gen.save(output_dir / 'dtmf_sequence.ppma')
-    
-    # 3. Frequency sweep
-    gen = PPMAGenerator()
-    gen.add_sweep(300, 3000, 5000)  # 5 second sweep
-    gen.save(output_dir / 'sweep_300_3k.ppma')
-    
-    # 4. Musical scale
-    gen = PPMAGenerator()
-    notes = [262, 294, 330, 349, 392, 440, 494, 523]  # C4 to C5
-    for note in notes:
-        gen.add_tone(note, 400, 0.4)
-        gen.add_silence(100)
-    gen.save(output_dir / 'c_major_scale.ppma')
-    
-    # 5. CTCSS tones
-    gen = PPMAGenerator()
-    ctcss_tones = [67.0, 71.9, 74.4, 77.0, 79.7, 82.5, 85.4, 88.5, 91.5, 94.8, 97.4, 100.0, 103.5, 107.2, 110.9, 114.8, 118.8, 123.0, 127.3, 131.8, 136.5, 141.3, 146.2, 151.4, 156.7, 162.2, 167.9, 173.8, 179.9, 186.2, 192.8, 199.5, 206.5, 210.7, 218.1, 225.7, 233.6, 241.8, 250.3]
-    for tone in ctcss_tones[:5]:  # First 5 tones
-        gen.add_tone(tone, 1000, 0.2)
-        gen.add_silence(200)
-    gen.save(output_dir / 'ctcss_tones.ppma')
-    
-    print(f"\nAll PPMA files generated in: {output_dir.absolute()}")
+    print(f"Created {filename}")
 
 if __name__ == "__main__":
-    main()
+    output_dir = sys.argv[1] if len(sys.argv) > 1 else "."
+    
+    # Generate various test tones
+    tones = [
+        (1000, "1khz_test.ppma"),
+        (440, "440hz_tone.ppma"),
+        (2000, "2khz_test.ppma"),
+    ]
+    
+    for freq, filename in tones:
+        create_simple_ppma(os.path.join(output_dir, filename), freq)
+    
+    # Generate a sequence
+    sequence = []
+    for freq in [500, 1000, 1500, 2000]:
+        t = np.linspace(0, 0.2, 1600)  # 200ms at 8kHz
+        sequence.extend(0.5 * np.sin(2 * np.pi * freq * t))
+        sequence.extend([0] * 400)  # 50ms silence
+    
+    audio_int16 = (np.array(sequence) * 32767).astype(np.int16)
+    with open(os.path.join(output_dir, "frequency_sequence.ppma"), 'wb') as f:
+        f.write(b'PPMA')
+        f.write(struct.pack('<I', 8000))
+        f.write(struct.pack('<I', len(audio_int16)))
+        f.write(audio_int16.tobytes())
+    
+    print(f"Generated PPMA files in {output_dir}")
+EOF
+          python generate_ppma.py ppma_output/
+        fi
+    
+    - name: List generated files
+      run: |
+        echo "Generated PPMA files:"
+        ls -la ppma_output/
+    
+    - name: Upload PPMA artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ppma-files
+        path: ppma_output/
+        if-no-files-found: warn
+    
+    - name: Create release (optional)
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: ppma_output/*.ppma
+        generate_release_notes: true
