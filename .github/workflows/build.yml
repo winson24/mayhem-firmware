@@ -15,51 +15,42 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Show files
+    - name: Create temp directory and copy files
       run: |
-        echo "=== Current directory ==="
-        pwd
-        echo "=== Finding all files ==="
-        find . -type f | sort
+        # Create temp directory
+        mkdir -p temp_app
+        
+        # Copy all app files
+        cp firmware/application/external/friendly_talker/*.cpp temp_app/ 2>/dev/null || true
+        cp firmware/application/external/friendly_talker/*.hpp temp_app/ 2>/dev/null || true
+        cp firmware/application/external/friendly_talker/CMakeLists.txt temp_app/ 2>/dev/null || true
+        
+        echo "=== Files copied to temp_app ==="
+        ls -la temp_app/
     
-    - name: Create PPMA package
+    - name: Package as PPMA
       run: |
-        # Find the app directory
-        APP_DIR=$(find . -type d -name "friendly_talker" | head -1)
+        cd temp_app
         
-        if [ -z "$APP_DIR" ]; then
-          echo "❌ Could not find friendly_talker directory"
-          exit 1
-        fi
-        
-        echo "✅ Found app directory: $APP_DIR"
-        cd "$APP_DIR"
-        
-        echo "=== Files in app directory ==="
-        ls -la
-        
-        # Create manifest.json
-        cat > manifest.json << 'EOF'
+        # Create manifest
+        cat > manifest.json << EOF
 {
   "name": "Friendly Talker",
   "version": "1.0",
   "type": "external",
   "target": "portapack",
-  "description": "Walkie Talkie app with earphone PTT support",
-  "author": "Your Name",
-  "license": "GPL"
+  "description": "Walkie Talkie app"
 }
 EOF
         
-        # Create the PPMA file (zip with .ppma extension)
-        zip -r ../../friendly_talker.ppma . -x "*.git*"
+        # Create PPMA
+        zip -r ../friendly_talker.ppma *
         
-        echo "=== PPMA package created ==="
-        ls -la ../../friendly_talker.ppma
+        echo "=== PPMA created ==="
+        ls -la ../friendly_talker.ppma
     
     - name: Upload PPMA
       uses: actions/upload-artifact@v4
       with:
         name: friendly-talker-ppma
-        path: "*.ppma"
-        if-no-files-found: error
+        path: friendly_talker.ppma
