@@ -1,4 +1,4 @@
-#include "ui_friendly_talker.hpp" 
+#include "ui_friendly_talker.hpp"
 #include "friendly_talker.hpp"
 #include "portapack.hpp"
 #include "audio.hpp"
@@ -8,7 +8,7 @@ using namespace portapack;
 
 namespace ui::external_app::friendly_talker {
 
-FriendlyTalkerView::FriendlyTalkerView(NavigationView& nav) {
+WalkieTalkieView::WalkieTalkieView(NavigationView& nav) {
     add_children({
         &text_title,
         &label_tx,
@@ -20,30 +20,22 @@ FriendlyTalkerView::FriendlyTalkerView(NavigationView& nav) {
         &progress_volume,
         &button_vol_up,
         &button_vol_down,
-        &button_ptt,
-        &label_status,
-        &text_status
+        &button_ptt
     });
     
     // Set default values
     field_tx_freq.set_value(446006250);
     field_rx_freq.set_value(446006250);
-    field_tx_freq.set_step(6250);
-    field_rx_freq.set_step(6250);
-    
-    progress_volume.set_value(friendly_talker::volume);
     
     // Button handlers
     button_ptt.on_select = [this](Button&) {
         friendly_talker::set_tx_mode();
         button_ptt.set_style(&Styles::red);
-        text_status.set("TX");
     };
     
     button_ptt.on_highlight = [this](Button&) {
         friendly_talker::set_rx_mode();
         button_ptt.set_style(&Styles::white);
-        text_status.set("RX");
     };
     
     // Same frequency checkbox
@@ -51,43 +43,23 @@ FriendlyTalkerView::FriendlyTalkerView(NavigationView& nav) {
         if (v) {
             field_rx_freq.set_value(field_tx_freq.value());
             field_rx_freq.set_focusable(false);
-            friendly_talker::set_frequencies(field_tx_freq.value(), field_tx_freq.value());
         } else {
             field_rx_freq.set_focusable(true);
-            friendly_talker::set_frequencies(field_tx_freq.value(), field_rx_freq.value());
         }
     };
     
-    // Volume controls
+    // Volume buttons
     button_vol_up.on_select = [this](Button&) {
         if (friendly_talker::volume < 10) {
-            friendly_talker::volume++;
-            friendly_talker::set_volume(friendly_talker::volume);
-            progress_volume.set_value(friendly_talker::volume);
+            friendly_talker::set_volume(friendly_talker::volume + 1);
+            progress_volume.set_value(friendly_talker::volume * 10);
         }
     };
     
     button_vol_down.on_select = [this](Button&) {
         if (friendly_talker::volume > 0) {
-            friendly_talker::volume--;
-            friendly_talker::set_volume(friendly_talker::volume);
-            progress_volume.set_value(friendly_talker::volume);
-        }
-    };
-    
-    // Frequency change handlers
-    field_tx_freq.on_change = [this]() {
-        if (checkbox_same.value()) {
-            field_rx_freq.set_value(field_tx_freq.value());
-            friendly_talker::set_frequencies(field_tx_freq.value(), field_tx_freq.value());
-        } else {
-            friendly_talker::set_frequencies(field_tx_freq.value(), field_rx_freq.value());
-        }
-    };
-    
-    field_rx_freq.on_change = [this]() {
-        if (!checkbox_same.value()) {
-            friendly_talker::set_frequencies(field_tx_freq.value(), field_rx_freq.value());
+            friendly_talker::set_volume(friendly_talker::volume - 1);
+            progress_volume.set_value(friendly_talker::volume * 10);
         }
     };
     
@@ -95,22 +67,20 @@ FriendlyTalkerView::FriendlyTalkerView(NavigationView& nav) {
     gpio_mode(GPIO_PIN_EARPHONE_BTN, GPIO_MODE_INPUT);
     gpio_pull_up_down(GPIO_PIN_EARPHONE_BTN, GPIO_PULL_UP);
     
-    // Initialize friendly talker
+    // Initialize walkie-talkie
     friendly_talker::init();
-    text_status.set("RX");
+    
+    // Set initial volume display
+    progress_volume.set_value(friendly_talker::volume * 10);
 }
 
-void FriendlyTalkerView::on_earphone_button() {
+void WalkieTalkieView::on_earphone_button() {
     bool pressed = !gpio_read(GPIO_PIN_EARPHONE_BTN);  // Active low
     
     if (pressed) {
         friendly_talker::set_tx_mode();
-        button_ptt.set_style(&Styles::red);
-        text_status.set("TX");
     } else {
         friendly_talker::set_rx_mode();
-        button_ptt.set_style(&Styles::white);
-        text_status.set("RX");
     }
 }
 
