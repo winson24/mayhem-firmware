@@ -15,14 +15,6 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Check specific paths
-      run: |
-        echo "=== Checking common locations ==="
-        test -f external/friendly_talker/friendly_talker.cpp && echo "✅ Found in external/friendly_talker/"
-        test -f firmware/application/external/friendly_talker/friendly_talker.cpp && echo "✅ Found in firmware/application/external/friendly_talker/"
-        test -f friendly_talker/friendly_talker.cpp && echo "✅ Found in friendly_talker/"
-        test -f src/friendly_talker/friendly_talker.cpp && echo "✅ Found in src/friendly_talker/"
-    
     - name: Install ARM GCC
       run: |
         sudo apt-get update
@@ -30,42 +22,48 @@ jobs:
     
     - name: Compile app
       run: |
-        # Try different possible paths
-        POSSIBLE_PATHS=(
-          "external/friendly_talker"
-          "firmware/application/external/friendly_talker"
-          "friendly_talker"
-          "src/friendly_talker"
-          "."
-        )
+        # Navigate to the correct path
+        cd firmware/application/external/friendly_talker
         
-        for path in "${POSSIBLE_PATHS[@]}"; do
-          if [ -f "$path/friendly_talker.cpp" ]; then
-            echo "✅ Found files in: $path"
-            cd "$path"
-            
-            # Compile files
-            arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
-              -std=c++17 \
-              -I. \
-              friendly_talker.cpp -o friendly_talker.o
-              
-            arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
-              -std=c++17 \
-              -I. \
-              ui_friendly_talker.cpp -o ui_friendly_talker.o
-            
-            echo "✅ Build successful!"
-            ls -la *.o
-            exit 0
-          fi
-        done
+        echo "=== Compiling in: $(pwd) ==="
+        echo "=== Files found ==="
+        ls -la
         
-        echo "❌ Could not find friendly_talker.cpp in any expected location"
-        exit 1
+        # Compile friendly_talker.cpp
+        echo "Compiling friendly_talker.cpp..."
+        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
+          -std=c++17 \
+          -fno-exceptions -fno-rtti \
+          -I. \
+          friendly_talker.cpp -o friendly_talker.o
+        
+        # Compile ui_friendly_talker.cpp
+        echo "Compiling ui_friendly_talker.cpp..."
+        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
+          -std=c++17 \
+          -fno-exceptions -fno-rtti \
+          -I. \
+          ui_friendly_talker.cpp -o ui_friendly_talker.o
+        
+        # Check if compilation was successful
+        if [ -f "friendly_talker.o" ] && [ -f "ui_friendly_talker.o" ]; then
+          echo "✅ Compilation successful!"
+          # Create a static library
+          arm-none-eabi-ar rcs libfriendly_talker.a *.o
+          echo "✅ Library created: libfriendly_talker.a"
+        else
+          echo "❌ Compilation failed!"
+          exit 1
+        fi
+        
+        echo "=== Build artifacts ==="
+        ls -la *.o *.a
     
-    - name: Upload artifacts
+    - name: Upload compiled library
       uses: actions/upload-artifact@v4
       with:
-        name: compiled-objects
-        path: "**/*.o"
+        name: friendly-talker-build
+        path: |
+          firmware/application/external/friendly_talker/*.o
+          firmware/application/external/friendly_talker/*.a
+        if-no-files-found: error
