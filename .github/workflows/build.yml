@@ -1,4 +1,4 @@
-name: Build Walkie Talkie App
+name: Build Walkie Talkie PPMA
 
 on:
   push:
@@ -15,69 +15,63 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Install ARM GCC and dependencies
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
+          cmake \
           gcc-arm-none-eabi \
-          git
+          libnewlib-arm-none-eabi \
+          git \
+          python3
     
-    - name: Clone PortaPack firmware for headers
+    - name: Clone Mayhem firmware
       run: |
-        git clone --depth 1 https://github.com/portapack-mayhem/Mayhem-Firmware.git portapack-firmware
+        git clone --recursive https://github.com/portapack-mayhem/Mayhem-Firmware.git
     
-    - name: Build app with firmware headers
+    - name: Copy app to external folder
       run: |
-        # Go to the app directory
-        cd firmware/application/external/friendly_talker
+        # Create external directory
+        mkdir -p Mayhem-Firmware/firmware/application/external/friendly_talker
         
-        echo "=== Compiling in: $(pwd) ==="
-        echo "=== Files in app directory ==="
-        ls -la
+        # Copy all app files
+        cp friendly_talker.cpp Mayhem-Firmware/firmware/application/external/friendly_talker/
+        cp friendly_talker.hpp Mayhem-Firmware/firmware/application/external/friendly_talker/
+        cp ui_friendly_talker.cpp Mayhem-Firmware/firmware/application/external/friendly_talker/
+        cp ui_friendly_talker.hpp Mayhem-Firmware/firmware/application/external/friendly_talker/
+        cp CMakeLists.txt Mayhem-Firmware/firmware/application/external/friendly_talker/
         
-        # Set include paths for all firmware headers
-        INCLUDE_PATHS="\
-          -I. \
-          -I$(pwd) \
-          -I$(pwd)/../../../../portapack-firmware/firmware/application \
-          -I$(pwd)/../../../../portapack-firmware/firmware/application/ui \
-          -I$(pwd)/../../../../portapack-firmware/firmware/common \
-          -I$(pwd)/../../../../portapack-firmware/firmware/application/hw \
-          -I$(pwd)/../../../../portapack-firmware/firmware/application/audio \
-          -I$(pwd)/../../../../portapack-firmware/firmware/application/portapack \
-          -I$(pwd)/../../../../portapack-firmware/firmame/application/external \
-          -I$(pwd)/../../../../portapack-firmware/firmware/application/apps \
-          -I$(pwd)/../../../../portapack-firmware/firmware/application/portapack/persistent_memory \
-          -I$(pwd)/../../../../portapack-firmware/firmware/application/portapack/io"
-        
-        # Compile friendly_talker.cpp with all includes
-        echo "Compiling friendly_talker.cpp..."
-        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
-          -std=c++17 \
-          -fno-exceptions -fno-rtti \
-          $INCLUDE_PATHS \
-          friendly_talker.cpp -o friendly_talker.o
-        
-        # Compile ui_friendly_talker.cpp with all includes
-        echo "Compiling ui_friendly_talker.cpp..."
-        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
-          -std=c++17 \
-          -fno-exceptions -fno-rtti \
-          $INCLUDE_PATHS \
-          ui_friendly_talker.cpp -o ui_friendly_talker.o
-        
-        # Check results
-        if [ -f "friendly_talker.o" ] && [ -f "ui_friendly_talker.o" ]; then
-          echo "✅ Compilation successful!"
-          ls -la *.o
-        else
-          echo "❌ Compilation failed!"
-          exit 1
-        fi
+        echo "=== App files copied ==="
+        ls -la Mayhem-Firmware/firmware/application/external/friendly_talker/
     
-    - name: Upload compiled objects
+    - name: Configure build for external apps
+      run: |
+        cd Mayhem-Firmware
+        mkdir -p build
+        cd build
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-arm-cortex-m4.cmake \
+                 -DEXTERNAL_APPS=ON
+    
+    - name: Build external apps
+      run: |
+        cd Mayhem-Firmware/build
+        make external_apps -j$(nproc)
+    
+    - name: Find PPMA files
+      run: |
+        echo "=== Looking for .ppma files ==="
+        find Mayhem-Firmware -name "*.ppma" -type f
+        
+        # Create output directory
+        mkdir -p ppma_output
+        find Mayhem-Firmware -name "*.ppma" -type f -exec cp {} ppma_output/ \;
+        
+        echo "=== PPMA files found ==="
+        ls -la ppma_output/
+    
+    - name: Upload PPMA files
       uses: actions/upload-artifact@v4
       with:
-        name: friendly-talker-objects
-        path: firmware/application/external/friendly_talker/*.o
+        name: friendly-talker-ppma
+        path: ppma_output/*.ppma
         if-no-files-found: error
