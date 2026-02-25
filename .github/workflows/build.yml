@@ -1,4 +1,58 @@
-- name: Build Friendly Talker directly
-  run: |
-    cd build
-    make friendly_talker  # Build just your app
+name: Build Friendly Talker
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        
+    - name: Install dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y \
+          cmake \
+          gcc-arm-none-eabi \
+          python3 \
+          lz4 \
+          dfu-util
+          
+    - name: Configure
+      run: |
+        mkdir -p build
+        cd build
+        cmake ..
+        
+    - name: Show available targets
+      run: |
+        cd build
+        make help | grep -E "(app|standalone|external)" || echo "No specific targets found"
+        
+    - name: Build everything
+      run: |
+        cd build
+        make -j2
+        
+    - name: Find .ppma files
+      run: |
+        echo "Searching for .ppma files..."
+        find . -name "*.ppma" -type f
+        mkdir -p artifacts
+        find . -name "*.ppma" -type f -exec cp {} artifacts/ \;
+        
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: friendly-talker
+        path: artifacts/
+        if-no-files-found: warn
