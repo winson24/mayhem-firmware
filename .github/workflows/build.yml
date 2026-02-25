@@ -1,77 +1,98 @@
-name: Build Walkie-Talkie PPMA
+name: Build PortaPack Walkie Talkie
 
 on:
   push:
-    paths:
-      - 'firmware/application/external/friendly_talker/**'
-      - 'firmware/application/CMakeLists.txt'
-  workflow_dispatch:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
-  build-ppma:
+  build:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      
-      - name: Install ARM Toolchain
-        uses: carlosperate/arm-none-eabi-gcc-action@v1
-        with:
-          release: '9-2020-q2'
-      
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake build-essential tree
-      
-      - name: Show Your Files
-        run: |
-          echo "=== Your friendly_talker folder contents ==="
-          tree firmware/application/external/friendly_talker/
-          echo -e "\n=== Your CMakeLists.txt entry ==="
-          grep -A5 -B5 "friendly_talker" firmware/application/CMakeLists.txt || echo "Not found!"
-      
-      - name: Clean Build Directory Completely
-        run: |
-          rm -rf build
-          mkdir -p build
-      
-      - name: Configure from Scratch
-        run: |
-          cd build
-          cmake .. -DCMAKE_VERBOSE_MAKEFILE=ON
-      
-      - name: Check Generated Build Files
-        run: |
-          echo "=== Checking if your app is in build files ==="
-          grep -r "friendly_talker" build/CMakeFiles/ || echo "Not found in CMakeFiles"
-          echo -e "\n=== Available targets ==="
-          cd build
-          make help | grep -E "friendly|talker" || echo "No friendly_talker target found"
-      
-      - name: Build Your Specific App
-        run: |
-          cd build
-          make friendly_talker VERBOSE=1
-      
-      - name: If that fails, try building standalone_apps
-        if: failure()
-        run: |
-          cd build
-          make standalone_apps VERBOSE=1
-      
-      - name: Find Built Files
-        run: |
-          echo "=== Searching for .ppma files ==="
-          find build -name "*.ppma" -type f
-          
-          echo -e "\n=== Searching for friendly_talker files ==="
-          find build -name "*friendly*" -o -name "*talker*"
-      
-      - name: Upload PPMA
-        uses: actions/upload-artifact@v4
-        with:
-          name: friendly-talker-app
-          path: build/**/*.ppma
-          if-no-files-found: warn
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          gcc-arm-none-eabi \
+          g++-arm-none-eabi \
+          libstdc++-arm-none-eabi-newlib \
+          git \
+          python3 \
+          python3-pip \
+          dfu-util
+    
+    - name: Clone PortaPack firmware
+      run: |
+        git clone --recursive https://github.com/portapack-mayhem/Mayhem-Firmware.git firmware
+        cd firmware
+        # You might want to pin to a specific version
+        # git checkout <specific-tag-or-commit>
+    
+    - name: Copy application files
+      run: |
+        # Create application directory structure
+        mkdir -p firmware/firmware/application/apps/friendly_talker
+        
+        # Copy your source files
+        cp friendly_talker.cpp firmware/firmware/application/apps/friendly_talker/
+        cp friendly_talker.hpp firmware/firmware/application/apps/friendly_talker/
+        cp ui_friendly_talker.cpp firmware/firmware/application/apps/friendly_talker/
+        cp ui_friendly_talker.hpp firmware/firmware/application/apps/friendly_talker/
+        cp CMakeLists.txt firmware/firmware/application/apps/friendly_talker/
+        
+        # Copy main.cpp if needed (for testing)
+        # cp main.cpp firmware/firmware/application/
+    
+    - name: Configure build
+      run: |
+        cd firmware
+        mkdir build
+        cd build
+        cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-arm-cortex-m4.cmake \
+                -DBUILD_FRIENDLY_TALKER=ON
+    
+    - name: Build firmware
+      run: |
+        cd firmware/build
+        make -j$(nproc)
+    
+    - name: Create application package
+      run: |
+        cd firmware/build
+        # Find and copy the compiled application
+        find . -name "*.bin" -o -name "*.elf" -o -name "*.hex" | xargs -I {} cp {} ../../ || true
+        
+        # Create a release package
+        cd ../..
+        mkdir -p release
+        cp firmware/build/firmware/application/portapack-mayhem.bin release/ 2>/dev/null || true
+        cp firmware/build/firmware/application/portapack-mayhem.elf release/ 2>/dev/null || true
+    
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: portapack-walkie-talkie
+        path: |
+          release/
+          firmware/build/firmware/application/*.bin
+          firmware/build/firmware/application/*.elf
+          firmware/build/firmware/application/*.hex
+        if-no-files-found: warn
+    
+    - name: Create release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          release/portapack-mayhem.bin
+          release/portapack-mayhem.elf
+        generate_release_notes: true
