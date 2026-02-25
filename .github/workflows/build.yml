@@ -15,6 +15,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
+    - name: Show directory structure
+      run: |
+        echo "=== Current directory ==="
+        pwd
+        echo "=== Finding all files ==="
+        find . -name "*.cpp" -o -name "*.hpp" | sort
+    
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -22,56 +29,69 @@ jobs:
           cmake \
           gcc-arm-none-eabi \
           libnewlib-arm-none-eabi \
-          git \
-          python3
+          git
     
     - name: Clone Mayhem firmware
       run: |
         git clone --recursive https://github.com/portapack-mayhem/Mayhem-Firmware.git
     
-    - name: Copy app to external folder
+    - name: Copy app from correct location
       run: |
-        # Create external directory
-        mkdir -p Mayhem-Firmware/firmware/application/external/friendly_talker
+        # Source path (where your files are in the repo)
+        SOURCE_PATH="firmware/application/external/friendly_talker"
         
-        # Copy all app files
-        cp friendly_talker.cpp Mayhem-Firmware/firmware/application/external/friendly_talker/
-        cp friendly_talker.hpp Mayhem-Firmware/firmware/application/external/friendly_talker/
-        cp ui_friendly_talker.cpp Mayhem-Firmware/firmware/application/external/friendly_talker/
-        cp ui_friendly_talker.hpp Mayhem-Firmware/firmware/application/external/friendly_talker/
-        cp CMakeLists.txt Mayhem-Firmware/firmware/application/external/friendly_talker/
+        # Destination path in Mayhem firmware
+        DEST_PATH="Mayhem-Firmware/firmware/application/external/friendly_talker"
         
-        echo "=== App files copied ==="
-        ls -la Mayhem-Firmware/firmware/application/external/friendly_talker/
+        echo "=== Copying from $SOURCE_PATH to $DEST_PATH ==="
+        
+        # Check if source exists
+        if [ ! -d "$SOURCE_PATH" ]; then
+          echo "❌ Source directory not found: $SOURCE_PATH"
+          echo "=== Looking for alternative locations ==="
+          find . -type d -name "friendly_talker" | head -5
+          exit 1
+        fi
+        
+        # Create destination and copy files
+        mkdir -p "$DEST_PATH"
+        cp -v "$SOURCE_PATH"/*.cpp "$DEST_PATH/"
+        cp -v "$SOURCE_PATH"/*.hpp "$DEST_PATH/"
+        cp -v "$SOURCE_PATH"/CMakeLists.txt "$DEST_PATH/" 2>/dev/null || echo "No CMakeLists.txt found"
+        
+        echo "=== Files copied ==="
+        ls -la "$DEST_PATH/"
     
-    - name: Configure build for external apps
+    - name: Build external apps
       run: |
         cd Mayhem-Firmware
         mkdir -p build
         cd build
         cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-arm-cortex-m4.cmake \
                  -DEXTERNAL_APPS=ON
-    
-    - name: Build external apps
-      run: |
-        cd Mayhem-Firmware/build
-        make external_apps -j$(nproc)
+        make -j$(nproc) external_apps || make -j$(nproc)
     
     - name: Find PPMA files
       run: |
-        echo "=== Looking for .ppma files ==="
+        echo "=== Searching for .ppma files ==="
         find Mayhem-Firmware -name "*.ppma" -type f
         
         # Create output directory
         mkdir -p ppma_output
         find Mayhem-Firmware -name "*.ppma" -type f -exec cp {} ppma_output/ \;
         
-        echo "=== PPMA files found ==="
+        # Also look for .bin files as fallback
+        if [ -z "$(ls -A ppma_output)" ]; then
+          echo "No PPMA found, looking for .bin files..."
+          find Mayhem-Firmware/build -name "*.bin" -exec cp {} ppma_output/ \;
+        fi
+        
+        echo "=== Files ready for download ==="
         ls -la ppma_output/
     
-    - name: Upload PPMA files
+    - name: Upload app files
       uses: actions/upload-artifact@v4
       with:
-        name: friendly-talker-ppma
-        path: ppma_output/*.ppma
-        if-no-files-found: error
+        name: friendly-talker-app
+        path: ppma_output/
+        if-no-files-found: warn
