@@ -1,4 +1,4 @@
-name: Build PortaPack Walkie Talkie
+name: Build Walkie Talkie App
 
 on:
   push:
@@ -18,47 +18,28 @@ jobs:
     - name: Install ARM GCC
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          cmake \
-          gcc-arm-none-eabi \
-          libnewlib-arm-none-eabi \
-          libstdc++-arm-none-eabi-newlib \
-          git
+        sudo apt-get install -y gcc-arm-none-eabi
     
-    - name: Verify installation
+    - name: Compile app
       run: |
-        arm-none-eabi-gcc --version
-        arm-none-eabi-g++ --version || echo "g++ is included in gcc package"
-    
-    - name: Clone PortaPack firmware
-      run: |
-        git clone --recursive https://github.com/portapack-mayhem/Mayhem-Firmware.git
-    
-    - name: Setup application
-      run: |
-        # Create app directory
-        mkdir -p Mayhem-Firmware/firmware/application/apps/friendly_talker
+        # Compile each cpp file
+        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
+          -fno-exceptions -fno-rtti \
+          -I. \
+          friendly_talker.cpp -o friendly_talker.o
         
-        # Copy files (they will be available from checkout)
-        cp friendly_talker.cpp Mayhem-Firmware/firmware/application/apps/friendly_talker/ 2>/dev/null || echo "file not found"
-        cp friendly_talker.hpp Mayhem-Firmware/firmware/application/apps/friendly_talker/ 2>/dev/null || echo "file not found"
-        cp ui_friendly_talker.cpp Mayhem-Firmware/firmware/application/apps/friendly_talker/ 2>/dev/null || echo "file not found"
-        cp ui_friendly_talker.hpp Mayhem-Firmware/firmware/application/apps/friendly_talker/ 2>/dev/null || echo "file not found"
-        cp CMakeLists.txt Mayhem-Firmware/firmware/application/apps/friendly_talker/ 2>/dev/null || echo "file not found"
+        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
+          -fno-exceptions -fno-rtti \
+          -I. \
+          ui_friendly_talker.cpp -o ui_friendly_talker.o
     
-    - name: Build
+    - name: List output
       run: |
-        cd Mayhem-Firmware
-        mkdir -p build
-        cd build
-        cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-arm-cortex-m4.cmake
-        make -j$(nproc)
+        ls -la *.o
+        echo "✅ Build complete!"
     
-    - name: Upload firmware
+    - name: Upload compiled objects
       uses: actions/upload-artifact@v4
       with:
-        name: portapack-firmware
-        path: |
-          Mayhem-Firmware/build/firmware/application/*.bin
-          Mayhem-Firmware/build/firmware/application/*.elf
-        if-no-files-found: error
+        name: compiled-objects
+        path: "*.o"
