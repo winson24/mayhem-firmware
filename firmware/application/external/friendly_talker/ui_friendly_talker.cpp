@@ -1,4 +1,4 @@
-#include "ui_walkie_talkie.hpp" 
+#include "ui_friendly_talker.hpp" 
 #include "friendly_talker.hpp"
 #include "portapack.hpp"
 #include "audio.hpp"
