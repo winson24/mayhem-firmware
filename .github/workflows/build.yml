@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:
 
 jobs:
   build:
@@ -14,86 +14,73 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
     
     - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y \
           cmake \
-          gcc-arm-none-eabi \
-          g++-arm-none-eabi \
-          libstdc++-arm-none-eabi-newlib \
           git \
           python3 \
           python3-pip \
-          dfu-util
+          dfu-util \
+          build-essential \
+          libssl-dev \
+          wget
+    
+    - name: Download ARM GCC toolchain
+      run: |
+        wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+        tar -xjf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+        echo "$(pwd)/gcc-arm-none-eabi-10.3-2021.10/bin" >> $GITHUB_PATH
+    
+    - name: Verify ARM GCC
+      run: |
+        arm-none-eabi-gcc --version
+        arm-none-eabi-g++ --version
     
     - name: Clone PortaPack firmware
       run: |
         git clone --recursive https://github.com/portapack-mayhem/Mayhem-Firmware.git firmware
-        cd firmware
-        # You might want to pin to a specific version
-        # git checkout <specific-tag-or-commit>
     
     - name: Copy application files
       run: |
-        # Create application directory structure
         mkdir -p firmware/firmware/application/apps/friendly_talker
-        
-        # Copy your source files
         cp friendly_talker.cpp firmware/firmware/application/apps/friendly_talker/
         cp friendly_talker.hpp firmware/firmware/application/apps/friendly_talker/
         cp ui_friendly_talker.cpp firmware/firmware/application/apps/friendly_talker/
         cp ui_friendly_talker.hpp firmware/firmware/application/apps/friendly_talker/
         cp CMakeLists.txt firmware/firmware/application/apps/friendly_talker/
-        
-        # Copy main.cpp if needed (for testing)
-        # cp main.cpp firmware/firmware/application/
     
     - name: Configure build
       run: |
         cd firmware
-        mkdir build
+        mkdir -p build
         cd build
         cmake .. -DCMAKE_TOOLCHAIN_FILE=../cmake/toolchain-arm-cortex-m4.cmake \
-                -DBUILD_FRIENDLY_TALKER=ON
+                -DBUILD_FRIENDLY_TALKER=ON \
+                -DARM_NONE_EABI_TOOLCHAIN_PATH=$(pwd)/../gcc-arm-none-eabi-10.3-2021.10
     
     - name: Build firmware
       run: |
         cd firmware/build
-        make -j$(nproc)
-    
-    - name: Create application package
-      run: |
-        cd firmware/build
-        # Find and copy the compiled application
-        find . -name "*.bin" -o -name "*.elf" -o -name "*.hex" | xargs -I {} cp {} ../../ || true
-        
-        # Create a release package
-        cd ../..
-        mkdir -p release
-        cp firmware/build/firmware/application/portapack-mayhem.bin release/ 2>/dev/null || true
-        cp firmware/build/firmware/application/portapack-mayhem.elf release/ 2>/dev/null || true
+        make -j$(nproc) VERBOSE=1
     
     - name: Upload artifacts
-      uses: actions/upload-artifact@v4  # Updated to v4
+      uses: actions/upload-artifact@v4
       with:
         name: portapack-walkie-talkie
         path: |
-          release/
           firmware/build/firmware/application/*.bin
           firmware/build/firmware/application/*.elf
-          firmware/build/firmware/application/*.hex
-        if-no-files-found: warn
-        retention-days: 90  # Optional: specify retention period
+        if-no-files-found: error
+        retention-days: 90
     
     - name: Create release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v1
       with:
         files: |
-          release/portapack-mayhem.bin
-          release/portapack-mayhem.elf
+          firmware/build/firmware/application/*.bin
+          firmware/build/firmware/application/*.elf
         generate_release_notes: true
