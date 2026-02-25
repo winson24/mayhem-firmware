@@ -15,66 +15,57 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Show current directory structure
+    - name: Check specific paths
       run: |
-        echo "=== Current directory ==="
-        pwd
-        echo "=== All files in repository ==="
-        ls -la
-        echo "=== Looking for cpp files ==="
-        find . -name "*.cpp" -type f
+        echo "=== Checking common locations ==="
+        test -f external/friendly_talker/friendly_talker.cpp && echo "✅ Found in external/friendly_talker/"
+        test -f firmware/application/external/friendly_talker/friendly_talker.cpp && echo "✅ Found in firmware/application/external/friendly_talker/"
+        test -f friendly_talker/friendly_talker.cpp && echo "✅ Found in friendly_talker/"
+        test -f src/friendly_talker/friendly_talker.cpp && echo "✅ Found in src/friendly_talker/"
     
     - name: Install ARM GCC
       run: |
         sudo apt-get update
         sudo apt-get install -y gcc-arm-none-eabi
     
-    - name: Compile friendly_talker app
+    - name: Compile app
       run: |
-        # Files are in current directory (repository root)
-        echo "=== Compiling files in: $(pwd) ==="
+        # Try different possible paths
+        POSSIBLE_PATHS=(
+          "external/friendly_talker"
+          "firmware/application/external/friendly_talker"
+          "friendly_talker"
+          "src/friendly_talker"
+          "."
+        )
         
-        # Check if files exist
-        if [ ! -f "friendly_talker.cpp" ]; then
-          echo "❌ friendly_talker.cpp not found!"
-          exit 1
-        fi
+        for path in "${POSSIBLE_PATHS[@]}"; do
+          if [ -f "$path/friendly_talker.cpp" ]; then
+            echo "✅ Found files in: $path"
+            cd "$path"
+            
+            # Compile files
+            arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
+              -std=c++17 \
+              -I. \
+              friendly_talker.cpp -o friendly_talker.o
+              
+            arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
+              -std=c++17 \
+              -I. \
+              ui_friendly_talker.cpp -o ui_friendly_talker.o
+            
+            echo "✅ Build successful!"
+            ls -la *.o
+            exit 0
+          fi
+        done
         
-        if [ ! -f "ui_friendly_talker.cpp" ]; then
-          echo "❌ ui_friendly_talker.cpp not found!"
-          exit 1
-        fi
-        
-        echo "✅ Found source files"
-        
-        # Compile friendly_talker.cpp
-        echo "Compiling friendly_talker.cpp..."
-        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
-          -std=c++17 \
-          -fno-exceptions -fno-rtti \
-          -I. \
-          friendly_talker.cpp -o friendly_talker.o
-        
-        # Compile ui_friendly_talker.cpp
-        echo "Compiling ui_friendly_talker.cpp..."
-        arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
-          -std=c++17 \
-          -fno-exceptions -fno-rtti \
-          -I. \
-          ui_friendly_talker.cpp -o ui_friendly_talker.o
-        
-        # Create static library
-        echo "Creating library..."
-        arm-none-eabi-ar rcs libfriendly_talker.a *.o
-        
-        echo "=== Compilation complete ==="
-        ls -la *.o *.a
+        echo "❌ Could not find friendly_talker.cpp in any expected location"
+        exit 1
     
-    - name: Upload compiled library
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: friendly-talker-lib
-        path: |
-          *.o
-          *.a
-        if-no-files-found: error
+        name: compiled-objects
+        path: "**/*.o"
