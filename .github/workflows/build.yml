@@ -22,43 +22,29 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential tree
-      
-      - name: Show Directory Structure
-        run: |
-          echo "=== Friendly Talker Files ==="
-          ls -la firmware/application/external/friendly_talker/
-          echo -e "\n=== File Contents ==="
-          cat firmware/application/external/friendly_talker/CMakeLists.txt
+          sudo apt-get install -y cmake build-essential
       
       - name: Configure
         run: |
           mkdir -p build
           cd build
-          cmake .. 2>&1 | tee cmake_output.log
+          cmake ..
       
-      - name: Build with Full Output
+      - name: Build Only Friendly Talker
         run: |
           cd build
-          make -j4 VERBOSE=1 2>&1 | tee make_output.log
+          make friendly_talker -j1
       
-      - name: Show Errors
-        if: failure()
+      - name: Find Built Files
         run: |
-          echo "=== CMake Error Output ==="
-          grep -i error build/cmake_output.log | head -20
-          
-          echo -e "\n=== Make Error Output ==="
-          grep -i error build/make_output.log | head -20
-          
-          echo -e "\n=== Last 50 lines of make output ==="
-          tail -50 build/make_output.log
+          echo "=== Looking for friendly_talker ==="
+          find build -name "*friendly_talker*" -o -name "*.ppma"
       
-      - name: Upload Build Logs
-        if: always()
+      - name: Upload PPMA
         uses: actions/upload-artifact@v4
         with:
-          name: build-logs
+          name: friendly-talker-app
           path: |
-            build/cmake_output.log
-            build/make_output.log
+            build/**/friendly_talker.ppma
+            build/**/*.ppma
+          if-no-files-found: warn
