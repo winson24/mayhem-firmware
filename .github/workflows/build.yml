@@ -3,7 +3,7 @@ name: Build Walkie-Talkie PPMA
 on:
   push:
     paths:
-      - 'firmware/application/external/walkie_talkie/**'
+      - 'firmware/application/external/friendly_talker/**'
   workflow_dispatch:
 
 jobs:
