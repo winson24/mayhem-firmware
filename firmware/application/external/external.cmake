@@ -297,8 +297,9 @@ set(EXTCPPSRC
 	external/morseradiotx/main.cpp
 	external/morseradiotx/ui_morse_radiotx.cpp
 
-  external/keeloqtx/main.cpp
-  external/keeloqtx/ui_keeloqtx.cpp
+    external/keeloqtx/main.cpp
+    external/keeloqtx/ui_keeloqtx.cpp
+	
 	#rtty_rx
 	external/rtty_rx/main.cpp
 	external/rtty_rx/ui_rtty_rx.cpp
@@ -312,6 +313,11 @@ set(EXTCPPSRC
     #pocsag_tx
 	external/pocsag_tx/main.cpp
 	external/pocsag_tx/ui_pocsag_tx.cpp
+
+	# walkie_talkie - Your custom walkie-talkie app with earphone PTT
+	external/walkie_talkie/main.cpp
+	external/walkie_talkie/walkie_talkie.cpp
+	external/walkie_talkie/ui_walkie_talkie.cpp
 )
 
 set(EXTAPPLIST
@@ -386,10 +392,11 @@ set(EXTAPPLIST
 	siggen
 	morse_radio
 	morseradiotx
-  keeloqtx
+    keeloqtx
 	rtty_rx
 	rtty_tx
 	pocsag_tx
+	walkie_talkie  # Add your app here
 )
 
 # sdusb has type conflicts with PRALINE (HackRF Pro) - add only for non-PRALINE builds
@@ -400,4 +407,3 @@ if(NOT BOARD STREQUAL "PRALINE")
        )
        list(APPEND EXTAPPLIST sdusb)
 endif()
-
