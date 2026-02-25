@@ -15,55 +15,69 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Install ARM GCC
+    - name: Install ARM GCC and dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y gcc-arm-none-eabi
+        sudo apt-get install -y \
+          gcc-arm-none-eabi \
+          git
     
-    - name: Compile app
+    - name: Clone PortaPack firmware for headers
       run: |
-        # Navigate to the correct path
+        git clone --depth 1 https://github.com/portapack-mayhem/Mayhem-Firmware.git portapack-firmware
+    
+    - name: Build app with firmware headers
+      run: |
+        # Go to the app directory
         cd firmware/application/external/friendly_talker
         
         echo "=== Compiling in: $(pwd) ==="
-        echo "=== Files found ==="
+        echo "=== Files in app directory ==="
         ls -la
         
-        # Compile friendly_talker.cpp
+        # Set include paths for all firmware headers
+        INCLUDE_PATHS="\
+          -I. \
+          -I$(pwd) \
+          -I$(pwd)/../../../../portapack-firmware/firmware/application \
+          -I$(pwd)/../../../../portapack-firmware/firmware/application/ui \
+          -I$(pwd)/../../../../portapack-firmware/firmware/common \
+          -I$(pwd)/../../../../portapack-firmware/firmware/application/hw \
+          -I$(pwd)/../../../../portapack-firmware/firmware/application/audio \
+          -I$(pwd)/../../../../portapack-firmware/firmware/application/portapack \
+          -I$(pwd)/../../../../portapack-firmware/firmame/application/external \
+          -I$(pwd)/../../../../portapack-firmware/firmware/application/apps \
+          -I$(pwd)/../../../../portapack-firmware/firmware/application/portapack/persistent_memory \
+          -I$(pwd)/../../../../portapack-firmware/firmware/application/portapack/io"
+        
+        # Compile friendly_talker.cpp with all includes
         echo "Compiling friendly_talker.cpp..."
         arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
           -std=c++17 \
           -fno-exceptions -fno-rtti \
-          -I. \
+          $INCLUDE_PATHS \
           friendly_talker.cpp -o friendly_talker.o
         
-        # Compile ui_friendly_talker.cpp
+        # Compile ui_friendly_talker.cpp with all includes
         echo "Compiling ui_friendly_talker.cpp..."
         arm-none-eabi-g++ -c -mcpu=cortex-m4 -mthumb -O2 \
           -std=c++17 \
           -fno-exceptions -fno-rtti \
-          -I. \
+          $INCLUDE_PATHS \
           ui_friendly_talker.cpp -o ui_friendly_talker.o
         
-        # Check if compilation was successful
+        # Check results
         if [ -f "friendly_talker.o" ] && [ -f "ui_friendly_talker.o" ]; then
           echo "✅ Compilation successful!"
-          # Create a static library
-          arm-none-eabi-ar rcs libfriendly_talker.a *.o
-          echo "✅ Library created: libfriendly_talker.a"
+          ls -la *.o
         else
           echo "❌ Compilation failed!"
           exit 1
         fi
-        
-        echo "=== Build artifacts ==="
-        ls -la *.o *.a
     
-    - name: Upload compiled library
+    - name: Upload compiled objects
       uses: actions/upload-artifact@v4
       with:
-        name: friendly-talker-build
-        path: |
-          firmware/application/external/friendly_talker/*.o
-          firmware/application/external/friendly_talker/*.a
+        name: friendly-talker-objects
+        path: firmware/application/external/friendly_talker/*.o
         if-no-files-found: error
