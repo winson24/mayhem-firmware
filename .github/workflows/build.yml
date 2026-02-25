@@ -15,66 +15,50 @@ jobs:
           submodules: recursive
       
       - name: Install ARM Toolchain
-        run: |
-          # Download the toolchain
-          wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2020q2/gcc-arm-none-eabi-9-2020-q2-update-x86_64-linux.tar.bz2
-          
-          # Extract it
-          tar -xjf gcc-arm-none-eabi-9-2020-q2-update-x86_64-linux.tar.bz2
-          
-          # Add to PATH for this session
-          echo "$(pwd)/gcc-arm-none-eabi-9-2020-q2-update/bin" >> $GITHUB_PATH
-          
-          # Also set environment variable for current step
-          export PATH="$PATH:$(pwd)/gcc-arm-none-eabi-9-2020-q2-update/bin"
-          
-          # Verify installation
-          which arm-none-eabi-gcc || echo "gcc not in PATH yet"
-          ls -la gcc-arm-none-eabi-9-2020-q2-update/bin/
-      
-      - name: Verify Toolchain
-        run: |
-          # Now PATH should be updated from previous step
-          echo "PATH: $PATH"
-          which arm-none-eabi-gcc
-          arm-none-eabi-gcc --version
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '9-2020-q2'
       
       - name: Install Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake build-essential tree
       
-      - name: Show Directory Structure Before Build
+      - name: Show Directory Structure
         run: |
-          echo "=== Repository Structure ==="
-          find firmware/application/external -type f -name "*.cpp" -o -name "*.hpp" | sort
-          echo -e "\n=== Friendly Talker Files ==="
+          echo "=== Friendly Talker Files ==="
           ls -la firmware/application/external/friendly_talker/
+          echo -e "\n=== File Contents ==="
+          cat firmware/application/external/friendly_talker/CMakeLists.txt
       
       - name: Configure
         run: |
           mkdir -p build
           cd build
-          cmake ..
+          cmake .. 2>&1 | tee cmake_output.log
       
-      - name: Build
+      - name: Build with Full Output
         run: |
           cd build
-          make -j4
+          make -j4 VERBOSE=1 2>&1 | tee make_output.log
       
-      - name: Find Built Files
+      - name: Show Errors
+        if: failure()
         run: |
-          echo "=== Looking for .ppma files ==="
-          find build -name "*.ppma" -type f
+          echo "=== CMake Error Output ==="
+          grep -i error build/cmake_output.log | head -20
           
-          echo -e "\n=== Looking for friendly_talker files ==="
-          find build -name "*friendly*" -o -name "*talker*"
+          echo -e "\n=== Make Error Output ==="
+          grep -i error build/make_output.log | head -20
+          
+          echo -e "\n=== Last 50 lines of make output ==="
+          tail -50 build/make_output.log
       
-      - name: Upload PPMA
+      - name: Upload Build Logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: friendly-talker-app
+          name: build-logs
           path: |
-            build/**/*.ppma
-            build/**/friendly*
-          if-no-files-found: warn
+            build/cmake_output.log
+            build/make_output.log
