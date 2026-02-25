@@ -16,41 +16,59 @@ jobs:
       uses: actions/checkout@v4
       with:
         submodules: recursive
+        fetch-depth: 0
         
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y cmake python3 python3-pip lz4 dfu-util
-        wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/9-2019q4/gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
-        tar xjf gcc-arm-none-eabi-9-2019-q4-major-x86_64-linux.tar.bz2
-        echo "$(pwd)/gcc-arm-none-eabi-9-2019-q4-major/bin" >> $GITHUB_PATH
-        
-    - name: Build
+        sudo apt install -y \
+          cmake \
+          python3 \
+          python3-pip \
+          lz4 \
+          dfu-util \
+          gcc-arm-none-eabi \
+          binutils-arm-none-eabi \
+          libnewlib-arm-none-eabi \
+          libstdc++-arm-none-eabi-newlib
+          
+    - name: Setup ARM GCC
       run: |
-        mkdir build
+        wget -q https://developer.arm.com/-/media/Files/downloads/gnu-rm/10.3-2021.10/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+        tar xjf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+        echo "$(pwd)/gcc-arm-none-eabi-10.3-2021.10/bin" >> $GITHUB_PATH
+        arm-none-eabi-gcc --version
+        
+    - name: Configure
+      run: |
+        mkdir -p build
         cd build
-        cmake ..
-        make standalone_apps
-        
-    - name: Debug - List all built files
+        cmake .. \
+          -DCMAKE_TOOLCHAIN_FILE=../toolchain-arm-cortex-m.cmake \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DENABLE_EXTERNAL_APPS=ON
+          
+    - name: Build external apps
       run: |
-        echo "=== Looking for .ppma files ==="
-        find . -name "*.ppma" -type f
-        echo ""
-        echo "=== Contents of build directory ==="
-        ls -la build/
-        echo ""
-        echo "=== Contents of build/external ==="
-        ls -la build/external/ || echo "No external folder"
-        echo ""
-        echo "=== Contents of build/external/friendly_talker ==="
-        ls -la build/external/friendly_talker/ || echo "No friendly_talker folder"
+        cd build
+        make external_apps
         
-    - name: Upload .ppma artifact
+    - name: Build specific app
+      run: |
+        cd build
+        make friendly_talker
+        
+    - name: Find and prepare artifact
+      run: |
+        echo "Searching for .ppma files..."
+        find . -name "*.ppma" -type f
+        mkdir -p artifacts
+        find . -name "*.ppma" -type f -exec cp {} artifacts/ \;
+        ls -la artifacts/
+        
+    - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
-        name: friendly-talker-ppma
-        path: |
-          **/*.ppma
-          build/**/*.ppma
-        if-no-files-found: warn
+        name: friendly-talker
+        path: artifacts/
+        if-no-files-found: error
