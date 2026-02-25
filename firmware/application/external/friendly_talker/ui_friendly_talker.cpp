@@ -1,11 +1,11 @@
-#include "ui_walkie_talkie.hpp"
+#include "ui_friendly_talker.hpp"
 #include "portapack.hpp"
 #include "audio.hpp"
 #include "gpio.hpp"
 
 using namespace portapack;
 
-namespace ui::external_app::walkie_talkie {
+namespace ui::external_app::friendly_talker {
 
 WalkieTalkieView::WalkieTalkieView(NavigationView& nav) {
     add_children({
